@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DIRECTION_OPTIONS } from "@/lib/events";
+import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES } from "@/lib/events";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -78,6 +78,20 @@ export async function POST(request: Request) {
     errors.push("End date cannot be before start date.");
   }
 
+  const recurrenceFrequency = getString("recurrence_frequency") || "none";
+  if (!RECURRENCE_FREQUENCIES.includes(recurrenceFrequency as (typeof RECURRENCE_FREQUENCIES)[number])) {
+    errors.push("Invalid recurrence frequency.");
+  }
+
+  const recurrenceEndDate = getString("recurrence_end_date");
+  if (recurrenceFrequency !== "none") {
+    if (!recurrenceEndDate) {
+      errors.push("Recurring events must have a recurrence end date.");
+    } else if (recurrenceEndDate < startDate) {
+      errors.push("Recurrence end date cannot be before the start date.");
+    }
+  }
+
   const imageFile = formData.get("image");
   if (!(imageFile instanceof File) || imageFile.size === 0) {
     errors.push("Event image is required.");
@@ -139,12 +153,16 @@ export async function POST(request: Request) {
     end_date: endDate || null,
     end_time: getString("end_time") || null,
     venue_name: getString("venue_name"),
+    address: getString("address") || null,
     city: getString("city"),
     state: getString("state"),
+    venue_phone: getString("venue_phone") || null,
     event_url: eventUrl,
     cost: costRaw ? Number(costRaw) : null,
     direction_from_memphis: direction,
     miles_from_downtown_memphis: milesRaw ? Number(milesRaw) : null,
+    recurrence_frequency: recurrenceFrequency,
+    recurrence_end_date: recurrenceFrequency !== "none" ? recurrenceEndDate : null,
     submitter_name: getString("submitter_name"),
     submitter_email: submitterEmail,
     image_rights_confirmed: imageRightsConfirmed,
