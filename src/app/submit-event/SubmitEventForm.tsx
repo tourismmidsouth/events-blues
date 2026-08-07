@@ -1,7 +1,23 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Script from "next/script";
 import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES } from "@/lib/events";
+
+interface Grecaptcha {
+  render: (container: HTMLElement, params: Record<string, unknown>) => number;
+  getResponse: (widgetId?: number) => string;
+  reset: (widgetId?: number) => void;
+}
+
+declare global {
+  interface Window {
+    grecaptcha?: Grecaptcha;
+    onRecaptchaLoad?: () => void;
+  }
+}
+
+const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
 type FormState = {
   title: string;
@@ -49,6 +65,8 @@ const EMPTY_FORM: FormState = {
 
 export default function SubmitEventForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recaptchaContainerRef = useRef<HTMLDivElement>(null);
+  const recaptchaWidgetId = useRef<number | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [imageRightsConfirmed, setImageRightsConfirmed] = useState(false);
@@ -59,6 +77,21 @@ export default function SubmitEventForm() {
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
+
+  function renderRecaptcha() {
+    if (!RECAPTCHA_SITE_KEY || !window.grecaptcha || !recaptchaContainerRef.current) return;
+    if (recaptchaWidgetId.current !== null) return;
+    recaptchaWidgetId.current = window.grecaptcha.render(recaptchaContainerRef.current, {
+      sitekey: RECAPTCHA_SITE_KEY,
+    });
+  }
+
+  useEffect(() => {
+    if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
+      renderRecaptcha();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
     setImageFile(e.target.files?.[0] || null);
@@ -73,10 +106,20 @@ export default function SubmitEventForm() {
       return;
     }
 
+    let recaptchaToken = "";
+    if (RECAPTCHA_SITE_KEY) {
+      recaptchaToken = window.grecaptcha?.getResponse(recaptchaWidgetId.current ?? undefined) || "";
+      if (!recaptchaToken) {
+        setError("Please complete the CAPTCHA.");
+        return;
+      }
+    }
+
     const formData = new FormData();
     formData.set("image", imageFile);
     Object.entries(form).forEach(([key, value]) => formData.set(key, value));
     formData.set("image_rights_confirmed", imageRightsConfirmed ? "true" : "false");
+    formData.set("recaptcha_token", recaptchaToken);
 
     setSubmitting(true);
     try {
@@ -89,6 +132,9 @@ export default function SubmitEventForm() {
       if (!response.ok) {
         setError(result.error || "Something went wrong. Please try again.");
         setSubmitting(false);
+        if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
+          window.grecaptcha.reset(recaptchaWidgetId.current ?? undefined);
+        }
         return;
       }
 
@@ -371,6 +417,18 @@ export default function SubmitEventForm() {
           for it to be published. *
         </label>
       </div>
+
+      {RECAPTCHA_SITE_KEY && (
+        <>
+          <Script
+            src="https://www.google.com/recaptcha/api.js"
+            strategy="lazyOnload"
+            onReady={renderRecaptcha}
+            onLoad={renderRecaptcha}
+          />
+          <div ref={recaptchaContainerRef} />
+        </>
+      )}
 
       {error && <p className="error-text">{error}</p>}
 

@@ -1,8 +1,32 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { Filter } from "bad-words";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES, slugify } from "@/lib/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+const profanityFilter = new Filter();
+
+// Verifies a Google reCAPTCHA v2 token server-side. Returns true (allow the
+// submission through) if RECAPTCHA_SECRET_KEY isn't configured, so the app
+// works with or without CAPTCHA set up.
+async function verifyRecaptcha(token: string): Promise<boolean> {
+  const secret = process.env.RECAPTCHA_SECRET_KEY;
+  if (!secret) return true;
+  if (!token) return false;
+
+  try {
+    const response = await fetch("https://www.google.com/recaptcha/api/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({ secret, response: token }),
+    });
+    const data = await response.json();
+    return data.success === true;
+  } catch {
+    return false;
+  }
+}
 
 // Appends -2, -3, ... until an unused slug is found.
 async function uniqueSlug(supabase: SupabaseClient, title: string): Promise<string> {
@@ -129,6 +153,27 @@ export async function POST(request: Request) {
   }
   if (milesRaw && Number.isNaN(Number(milesRaw))) {
     errors.push("Miles from downtown Memphis must be a number.");
+  }
+
+  // Checked against every free-text field a submitter controls. A flagged
+  // submission is rejected outright here — nothing is saved or uploaded, so
+  // it never reaches the admin dashboard for review.
+  const textToScreen = [
+    getString("title"),
+    getString("description"),
+    getString("venue_name"),
+    getString("address"),
+    getString("submitter_name"),
+  ].join(" \n ");
+  if (profanityFilter.isProfane(textToScreen)) {
+    errors.push(
+      "This submission contains language that isn't allowed. Please revise it and try again."
+    );
+  }
+
+  const recaptchaToken = getString("recaptcha_token");
+  if (!(await verifyRecaptcha(recaptchaToken))) {
+    errors.push("CAPTCHA verification failed. Please try again.");
   }
 
   if (errors.length > 0) {
