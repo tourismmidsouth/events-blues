@@ -10,8 +10,14 @@ import {
   type EventRecord,
 } from "@/lib/events";
 
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
 export default function EditEventForm({ event }: { event: EventRecord }) {
   const router = useRouter();
+  const [imageUrl, setImageUrl] = useState(event.image_url);
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [form, setForm] = useState({
     title: event.title,
     description: event.description,
@@ -40,6 +46,27 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setImageError(null);
+    const file = e.target.files?.[0] || null;
+    if (!file) {
+      setNewImageFile(null);
+      return;
+    }
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setImageError("Image must be a JPG, PNG, or WebP file.");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setImageError("Image must be 10 MB or smaller.");
+      e.target.value = "";
+      return;
+    }
+    setNewImageFile(file);
+    setImageUrl(URL.createObjectURL(file));
+  }
+
   async function handleSubmit(formEvent: React.FormEvent) {
     formEvent.preventDefault();
     setError(null);
@@ -47,7 +74,32 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
     setSaving(true);
 
     const supabase = createClient();
+
+    let imagePatch: { image_url: string; image_path: string } | null = null;
+    if (newImageFile) {
+      const extension =
+        newImageFile.type === "image/png" ? "png" : newImageFile.type === "image/webp" ? "webp" : "jpg";
+      const imagePath = `admin-edits/${crypto.randomUUID()}.${extension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("event-images")
+        .upload(imagePath, newImageFile, { contentType: newImageFile.type, upsert: false });
+
+      if (uploadError) {
+        setError("Failed to upload the new image. Please try again.");
+        setSaving(false);
+        return;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("event-images").getPublicUrl(imagePath);
+
+      imagePatch = { image_url: publicUrl, image_path: imagePath };
+    }
+
     const patch: Record<string, unknown> = {
+      ...(imagePatch || {}),
       title: form.title,
       description: form.description,
       start_date: form.start_date,
@@ -80,11 +132,21 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
     const { error: updateError } = await supabase.from("events").update(patch).eq("id", event.id);
 
     if (updateError) {
+      // Roll back the just-uploaded image so it doesn't end up orphaned in
+      // storage, pointing at nothing.
+      if (imagePatch) {
+        await supabase.storage.from("event-images").remove([imagePatch.image_path]);
+      }
       setError("Failed to save changes.");
       setSaving(false);
       return;
     }
 
+    if (imagePatch && event.image_path) {
+      await supabase.storage.from("event-images").remove([event.image_path]);
+    }
+
+    setNewImageFile(null);
     setSavedMessage("Changes saved.");
     setSaving(false);
     router.refresh();
@@ -112,13 +174,20 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
         />
       </div>
 
-      {event.image_url && (
-        <div className="field">
-          <label>Current Image</label>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={event.image_url} alt="" style={{ maxWidth: 220, borderRadius: 8 }} />
-        </div>
-      )}
+      <div className="field">
+        <label htmlFor="image">Event Image</label>
+        {imageUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={imageUrl}
+            alt=""
+            style={{ maxWidth: 220, maxHeight: 180, objectFit: "contain", background: "#eee", borderRadius: 8 }}
+          />
+        )}
+        <span className="hint">Choose a new JPG, PNG, or WebP (max 10 MB) to replace it.</span>
+        <input id="image" type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} />
+        {imageError && <span className="error-text">{imageError}</span>}
+      </div>
 
       <div className="field-row">
         <div className="field">
