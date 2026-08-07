@@ -10,6 +10,10 @@ and Supabase.
 - `/admin/events` — admin dashboard (approve, reject, archive, edit, delete)
 - `/embed/events/gallery` — public gallery of published, upcoming events for
   embedding in Squarespace
+- AI flyer reading on `/submit-event` — uploading an event flyer image
+  automatically pre-fills the form via Claude's vision API (optional, see
+  below); the submitter still reviews and can correct everything before
+  submitting
 
 ## Setup
 
@@ -58,6 +62,27 @@ npm run dev
 
 Push this repo to GitHub and import it into Vercel. Add the same four
 environment variables in the Vercel project settings, then deploy.
+
+### 7. (Optional) Enable AI flyer reading
+
+Get an API key from [console.anthropic.com](https://console.anthropic.com),
+then add it as a server-side environment variable (never `NEXT_PUBLIC_*`):
+
+```
+ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+
+With this set, uploading an image on `/submit-event` sends it to
+`/api/extract-event-details`, which asks Claude to read the flyer and
+returns a best-effort guess at the title, dates, times, venue, address,
+cost, and recurrence — the form is pre-filled but nothing is ever saved
+without the submitter reviewing and clicking Submit. Without this key set,
+the image upload field just works normally with no auto-fill step; nothing
+else breaks.
+
+This calls the Anthropic API directly from your server and is billed to
+your own Anthropic account per the API's usual per-image/per-token pricing
+— it's a separate cost from Supabase/Vercel.
 
 ## Embedding the gallery in Squarespace
 
