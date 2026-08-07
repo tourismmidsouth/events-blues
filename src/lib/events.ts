@@ -16,6 +16,7 @@ export const EVENT_TIMEZONE = "America/Chicago";
 
 export interface EventRecord {
   id: string;
+  slug: string | null;
   title: string;
   description: string;
   image_url: string | null;
@@ -45,6 +46,17 @@ export interface EventRecord {
   updated_at: string | null;
 }
 
+// Turns a title into a URL-safe slug: lowercase, alphanumerics and hyphens
+// only, no leading/trailing/repeated hyphens.
+export function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "event";
+}
+
 // Public-safe projection: never includes submitter_name or submitter_email.
 export type PublicEventRecord = Omit<
   EventRecord,
@@ -53,6 +65,7 @@ export type PublicEventRecord = Omit<
 
 export const PUBLIC_EVENT_COLUMNS = [
   "id",
+  "slug",
   "title",
   "description",
   "image_url",
@@ -220,12 +233,159 @@ export function expandOccurrences<
   return occurrences;
 }
 
+// True if dateStr is a date this event actually occurs on — either its
+// single start_date, or (for a recurring event) one of the dates its
+// recurrence pattern lands on. Used to validate a /event/[slug]/[date] URL
+// rather than trusting the date segment blindly.
+export function isValidOccurrenceDate(
+  event: Pick<EventRecord, "start_date" | "end_date" | "recurrence_frequency" | "recurrence_end_date">,
+  dateStr: string
+): boolean {
+  return expandOccurrences(event).some((occurrence) => occurrence.occurrenceStartDate === dateStr);
+}
+
 // True once an individual occurrence's effective date (occurrenceEndDate,
 // falling back to occurrenceStartDate) is before today in America/Chicago.
 export function isPastOccurrence(occurrence: Pick<EventOccurrence, "occurrenceStartDate" | "occurrenceEndDate">): boolean {
   const today = todayInChicago();
   const effectiveDate = occurrence.occurrenceEndDate || occurrence.occurrenceStartDate;
   return effectiveDate < today;
+}
+
+interface CalendarEventInput {
+  title: string;
+  description: string;
+  occurrenceStartDate: string;
+  occurrenceEndDate: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  venue_name: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+}
+
+function calendarLocation(input: CalendarEventInput): string {
+  return [input.venue_name, input.address, input.city, input.state].filter(Boolean).join(", ");
+}
+
+function compactDateTime(dateStr: string, timeStr: string): string {
+  return `${dateStr.replace(/-/g, "")}T${timeStr.replace(":", "")}00`;
+}
+
+function addDaysToDateStr(dateStr: string, days: number): string {
+  const date = parseDateOnly(dateStr);
+  date.setDate(date.getDate() + days);
+  return formatDateOnly(date);
+}
+
+function addHoursToTimeStr(timeStr: string, hours: number): string {
+  const [h, m] = timeStr.split(":").map(Number);
+  const totalMinutes = h * 60 + m + hours * 60;
+  const wrapped = ((totalMinutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  return `${String(Math.floor(wrapped / 60)).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
+}
+
+// Google Calendar "quick add" link. Uses floating local time + ctz so no
+// UTC conversion/timezone library is needed.
+export function buildGoogleCalendarUrl(input: CalendarEventInput): string {
+  const params = new URLSearchParams();
+  params.set("action", "TEMPLATE");
+  params.set("text", input.title);
+  if (input.description) params.set("details", input.description);
+  const location = calendarLocation(input);
+  if (location) params.set("location", location);
+  params.set("ctz", EVENT_TIMEZONE);
+
+  if (input.start_time) {
+    const endDate = input.occurrenceEndDate || input.occurrenceStartDate;
+    const endTime = input.end_time || addHoursToTimeStr(input.start_time, 2);
+    params.set(
+      "dates",
+      `${compactDateTime(input.occurrenceStartDate, input.start_time)}/${compactDateTime(endDate, endTime)}`
+    );
+  } else {
+    const endDate = addDaysToDateStr(input.occurrenceEndDate || input.occurrenceStartDate, 1);
+    params.set(
+      "dates",
+      `${input.occurrenceStartDate.replace(/-/g, "")}/${endDate.replace(/-/g, "")}`
+    );
+  }
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+// Standard America/Chicago VTIMEZONE block (US DST rules since 2007),
+// needed so downloaded .ics files show the correct local time in any
+// calendar app regardless of the importing user's own timezone.
+const CENTRAL_VTIMEZONE = `BEGIN:VTIMEZONE
+TZID:America/Chicago
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0600
+TZOFFSETTO:-0500
+TZNAME:CDT
+DTSTART:19700308T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0600
+TZNAME:CST
+DTSTART:19701101T020000
+RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU
+END:STANDARD
+END:VTIMEZONE`;
+
+function escapeICSText(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+
+// Builds a downloadable .ics file's contents for a single event occurrence.
+export function buildICSContent(input: CalendarEventInput): string {
+  const location = calendarLocation(input);
+  const uid = `${input.occurrenceStartDate}-${slugify(input.title)}@bluesbackroads`;
+  const now = new Date();
+  const stamp = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}${String(
+    now.getUTCDate()
+  ).padStart(2, "0")}T${String(now.getUTCHours()).padStart(2, "0")}${String(now.getUTCMinutes()).padStart(
+    2,
+    "0"
+  )}${String(now.getUTCSeconds()).padStart(2, "0")}Z`;
+
+  let dtLines: string;
+  if (input.start_time) {
+    const endDate = input.occurrenceEndDate || input.occurrenceStartDate;
+    const endTime = input.end_time || addHoursToTimeStr(input.start_time, 2);
+    dtLines = [
+      `DTSTART;TZID=${EVENT_TIMEZONE}:${compactDateTime(input.occurrenceStartDate, input.start_time)}`,
+      `DTEND;TZID=${EVENT_TIMEZONE}:${compactDateTime(endDate, endTime)}`,
+    ].join("\r\n");
+  } else {
+    const endDate = addDaysToDateStr(input.occurrenceEndDate || input.occurrenceStartDate, 1);
+    dtLines = [
+      `DTSTART;VALUE=DATE:${input.occurrenceStartDate.replace(/-/g, "")}`,
+      `DTEND;VALUE=DATE:${endDate.replace(/-/g, "")}`,
+    ].join("\r\n");
+  }
+
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Blues Backroads//Events//EN",
+    "CALSCALE:GREGORIAN",
+    CENTRAL_VTIMEZONE,
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${stamp}`,
+    dtLines,
+    `SUMMARY:${escapeICSText(input.title)}`,
+    input.description ? `DESCRIPTION:${escapeICSText(input.description)}` : null,
+    location ? `LOCATION:${escapeICSText(location)}` : null,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ]
+    .filter(Boolean)
+    .join("\r\n");
 }
 
 // Human-readable recurrence description, e.g. "Weekly through Dec 20, 2026".

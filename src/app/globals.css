@@ -163,7 +163,8 @@ button.primary:disabled {
   cursor: not-allowed;
 }
 
-button.secondary {
+button.secondary,
+a.secondary {
   background: #fff;
   color: var(--color-accent);
   border: 1px solid var(--color-accent);
@@ -172,6 +173,9 @@ button.secondary {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+  line-height: 1.2;
 }
 
 button.danger {
@@ -415,6 +419,13 @@ th {
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+/* 40% wider than the base modal (560px * 1.4), used for the gallery detail
+   popup so there's room for the Add to Calendar buttons and map without
+   feeling cramped. Capped to the viewport width on narrow screens. */
+.modal-wide {
+  max-width: min(784px, 96vw);
 }
 
 .modal img {

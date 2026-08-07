@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  buildGoogleCalendarUrl,
+  buildICSContent,
   formatDateRange,
   formatRecurrence,
   formatTime,
@@ -29,9 +31,14 @@ function mapEmbedSrc(
   return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
 }
 
+function toICSDataUrl(content: string): string {
+  return `data:text/calendar;charset=utf-8,${encodeURIComponent(content)}`;
+}
+
 // Reports this page's rendered height to the parent window so a Squarespace
-// (or any) iframe embed can resize itself instead of clipping content —
-// important on mobile where card counts and layout shift the page height.
+// (or any) iframe embed can resize itself to fit the content exactly,
+// instead of showing its own internal scrollbar — the embed should always
+// grow/shrink with its content, never scroll within itself.
 function useIframeHeightReporter(dependency: unknown) {
   useEffect(() => {
     function postHeight() {
@@ -40,12 +47,19 @@ function useIframeHeightReporter(dependency: unknown) {
     }
 
     postHeight();
-    const observer = new ResizeObserver(postHeight);
-    observer.observe(document.documentElement);
+    const raf = requestAnimationFrame(postHeight);
+    const resizeObserver = new ResizeObserver(postHeight);
+    resizeObserver.observe(document.documentElement);
+    const mutationObserver = new MutationObserver(postHeight);
+    mutationObserver.observe(document.body, { childList: true, subtree: true, attributes: true });
+    window.addEventListener("load", postHeight);
     window.addEventListener("resize", postHeight);
 
     return () => {
-      observer.disconnect();
+      cancelAnimationFrame(raf);
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener("load", postHeight);
       window.removeEventListener("resize", postHeight);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,23 +70,41 @@ export default function Gallery({
   occurrences,
   initialView = "grid",
   showToggle = true,
+  cardLinkUrl,
 }: {
   occurrences: Occurrence[];
   initialView?: View;
   showToggle?: boolean;
+  cardLinkUrl?: string;
 }) {
   const [view, setView] = useState<View>(initialView);
   const [selected, setSelected] = useState<Occurrence | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useIframeHeightReporter(`${view}-${occurrences.length}-${selected ? selected.event.id : ""}`);
+
+  function openOccurrence(occurrence: Occurrence) {
+    setSelected(occurrence);
+    // Bring the user to the top so the modal is visible with no scrolling —
+    // both within the iframe itself and, via postMessage, the parent page
+    // it's embedded in (the listener script documented in the README).
+    window.scrollTo({ top: 0, behavior: "auto" });
+    window.parent.postMessage({ type: "blues-backroads-scroll-top" }, "*");
+  }
 
   if (occurrences.length === 0) {
     return <p className="empty-state">No upcoming events right now. Check back soon!</p>;
   }
 
+  const CardImage = ({ occurrence }: { occurrence: Occurrence }) =>
+    occurrence.event.image_url ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={occurrence.event.image_url} alt={occurrence.event.title} />
+    ) : (
+      <div className="thumb" style={{ width: "100%", height: 150 }} />
+    );
+
   return (
-    <div ref={containerRef}>
+    <div>
       {showToggle && (
         <div className="filters" role="group" aria-label="Gallery view">
           <button className={view === "grid" ? "active" : ""} onClick={() => setView("grid")}>
@@ -86,62 +118,79 @@ export default function Gallery({
 
       {view === "grid" ? (
         <div className="gallery-grid">
-          {occurrences.map((occurrence, index) => (
-            <button
-              key={`${occurrence.event.id}-${occurrence.occurrenceStartDate}-${index}`}
-              className="gallery-card"
-              onClick={() => setSelected(occurrence)}
-            >
-              <div className="gallery-date-badge">{formatDateBadge(occurrence.occurrenceStartDate)}</div>
-              {occurrence.event.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={occurrence.event.image_url} alt={occurrence.event.title} />
-              ) : (
-                <div className="thumb" style={{ width: "100%", height: 150 }} />
-              )}
-              <div className="gallery-card-body">
-                <h3>{occurrence.event.title}</h3>
-                <div className="gallery-meta">
-                  {formatDateRange(occurrence.occurrenceStartDate, occurrence.occurrenceEndDate)}
+          {occurrences.map((occurrence, index) => {
+            const key = `${occurrence.event.id}-${occurrence.occurrenceStartDate}-${index}`;
+            const cardBody = (
+              <>
+                <div className="gallery-date-badge">{formatDateBadge(occurrence.occurrenceStartDate)}</div>
+                <CardImage occurrence={occurrence} />
+                <div className="gallery-card-body">
+                  <h3>{occurrence.event.title}</h3>
+                  <div className="gallery-meta">
+                    {formatDateRange(occurrence.occurrenceStartDate, occurrence.occurrenceEndDate)}
+                  </div>
+                  <div className="gallery-meta">
+                    {[occurrence.event.venue_name, occurrence.event.city].filter(Boolean).join(", ")}
+                  </div>
                 </div>
-                <div className="gallery-meta">
-                  {[occurrence.event.venue_name, occurrence.event.city].filter(Boolean).join(", ")}
-                </div>
-              </div>
-            </button>
-          ))}
+              </>
+            );
+            return cardLinkUrl ? (
+              <a key={key} className="gallery-card" href={cardLinkUrl} target="_blank" rel="noopener noreferrer">
+                {cardBody}
+              </a>
+            ) : (
+              <button key={key} className="gallery-card" onClick={() => openOccurrence(occurrence)}>
+                {cardBody}
+              </button>
+            );
+          })}
         </div>
       ) : (
         <div className="gallery-list">
-          {occurrences.map((occurrence, index) => (
-            <button
-              key={`${occurrence.event.id}-${occurrence.occurrenceStartDate}-${index}`}
-              className="gallery-list-item"
-              onClick={() => setSelected(occurrence)}
-            >
-              {occurrence.event.image_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={occurrence.event.image_url} alt={occurrence.event.title} />
-              ) : (
-                <div className="thumb" />
-              )}
-              <div className="gallery-list-item-body">
-                <h3>{occurrence.event.title}</h3>
-                <div className="gallery-meta">
-                  {formatDateRange(occurrence.occurrenceStartDate, occurrence.occurrenceEndDate)}
+          {occurrences.map((occurrence, index) => {
+            const key = `${occurrence.event.id}-${occurrence.occurrenceStartDate}-${index}`;
+            const itemBody = (
+              <>
+                {occurrence.event.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={occurrence.event.image_url} alt={occurrence.event.title} />
+                ) : (
+                  <div className="thumb" />
+                )}
+                <div className="gallery-list-item-body">
+                  <h3>{occurrence.event.title}</h3>
+                  <div className="gallery-meta">
+                    {formatDateRange(occurrence.occurrenceStartDate, occurrence.occurrenceEndDate)}
+                  </div>
+                  <div className="gallery-meta">
+                    {[occurrence.event.venue_name, occurrence.event.city].filter(Boolean).join(", ")}
+                  </div>
                 </div>
-                <div className="gallery-meta">
-                  {[occurrence.event.venue_name, occurrence.event.city].filter(Boolean).join(", ")}
-                </div>
-              </div>
-            </button>
-          ))}
+              </>
+            );
+            return cardLinkUrl ? (
+              <a
+                key={key}
+                className="gallery-list-item"
+                href={cardLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {itemBody}
+              </a>
+            ) : (
+              <button key={key} className="gallery-list-item" onClick={() => openOccurrence(occurrence)}>
+                {itemBody}
+              </button>
+            );
+          })}
         </div>
       )}
 
       {selected && (
         <div className="modal-backdrop" onClick={() => setSelected(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setSelected(null)} aria-label="Close">
               ✕
             </button>
@@ -209,6 +258,59 @@ export default function Gallery({
                   {selected.event.miles_from_downtown_memphis}
                 </p>
               )}
+
+              <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap", margin: "1rem 0" }}>
+                <a
+                  className="secondary"
+                  href={buildGoogleCalendarUrl({
+                    title: selected.event.title,
+                    description: selected.event.description,
+                    occurrenceStartDate: selected.occurrenceStartDate,
+                    occurrenceEndDate: selected.occurrenceEndDate,
+                    start_time: selected.event.start_time,
+                    end_time: selected.event.end_time,
+                    venue_name: selected.event.venue_name,
+                    address: selected.event.address,
+                    city: selected.event.city,
+                    state: selected.event.state,
+                  })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Add to Google Calendar
+                </a>
+                <a
+                  className="secondary"
+                  href={toICSDataUrl(
+                    buildICSContent({
+                      title: selected.event.title,
+                      description: selected.event.description,
+                      occurrenceStartDate: selected.occurrenceStartDate,
+                      occurrenceEndDate: selected.occurrenceEndDate,
+                      start_time: selected.event.start_time,
+                      end_time: selected.event.end_time,
+                      venue_name: selected.event.venue_name,
+                      address: selected.event.address,
+                      city: selected.event.city,
+                      state: selected.event.state,
+                    })
+                  )}
+                  download={`${selected.event.slug || "event"}.ics`}
+                >
+                  Download .ics
+                </a>
+                {selected.event.slug && (
+                  <a
+                    className="secondary"
+                    href={`/event/${selected.event.slug}/${selected.occurrenceStartDate}/`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    View Full Page
+                  </a>
+                )}
+              </div>
+
               {(selected.event.venue_name || selected.event.city) && (
                 <div className="modal-map">
                   <iframe
