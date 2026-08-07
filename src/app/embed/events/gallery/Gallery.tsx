@@ -3,6 +3,19 @@
 import { useState } from "react";
 import { formatDateRange, formatTime, type PublicEventRecord } from "@/lib/events";
 
+function formatDateBadge(dateStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date
+    .toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    .toUpperCase();
+}
+
+function mapEmbedSrc(event: Pick<PublicEventRecord, "venue_name" | "city" | "state">): string {
+  const query = [event.venue_name, event.city, event.state].filter(Boolean).join(", ");
+  return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
+}
+
 export default function Gallery({ events }: { events: PublicEventRecord[] }) {
   const [selected, setSelected] = useState<PublicEventRecord | null>(null);
 
@@ -19,11 +32,12 @@ export default function Gallery({ events }: { events: PublicEventRecord[] }) {
             className="gallery-card"
             onClick={() => setSelected(event)}
           >
+            <div className="gallery-date-badge">{formatDateBadge(event.start_date)}</div>
             {event.image_url ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={event.image_url} alt={event.title} />
             ) : (
-              <div className="thumb" style={{ width: "100%", height: 160 }} />
+              <div className="thumb" style={{ width: "100%", height: 150 }} />
             )}
             <div className="gallery-card-body">
               <h3>{event.title}</h3>
@@ -85,6 +99,16 @@ export default function Gallery({ events }: { events: PublicEventRecord[] }) {
                   <strong>Miles from Downtown Memphis:</strong>{" "}
                   {selected.miles_from_downtown_memphis}
                 </p>
+              )}
+              {(selected.venue_name || selected.city) && (
+                <div className="modal-map">
+                  <iframe
+                    src={mapEmbedSrc(selected)}
+                    title={`Map to ${selected.venue_name || selected.title}`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                  />
+                </div>
               )}
             </div>
           </div>
