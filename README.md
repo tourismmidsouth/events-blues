@@ -10,6 +10,10 @@ and Supabase.
 - `/admin/events` — admin dashboard (approve, reject, archive, edit, delete)
 - `/embed/events/gallery` — public gallery of published, upcoming events for
   embedding in Squarespace
+- AI flyer reading on `/submit-event` — uploading an event flyer image
+  automatically pre-fills the form via Claude's vision API (optional, see
+  below); the submitter still reviews and can correct everything before
+  submitting
 
 ## Setup
 
@@ -58,6 +62,31 @@ npm run dev
 
 Push this repo to GitHub and import it into Vercel. Add the same four
 environment variables in the Vercel project settings, then deploy.
+
+### 7. (Optional) Enable AI flyer reading
+
+Get a free API key at
+[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+(sign in with any Google account — Google AI Studio's free tier covers this
+use case at normal volume), then add it in **Vercel → your project →
+Settings → Environment Variables** as a server-side variable (never
+`NEXT_PUBLIC_*`, since this key must never reach the browser):
+
+```
+GEMINI_API_KEY=your-gemini-api-key
+```
+
+With this set, uploading an image on `/submit-event` sends it to
+`/api/extract-event-details`, which asks Gemini to read the flyer and
+returns a best-effort guess at the title, dates, times, venue, address,
+cost, and recurrence — the form is pre-filled but nothing is ever saved
+without the submitter reviewing and clicking Submit. Without this key set,
+the image upload field just works normally with no auto-fill step; nothing
+else breaks.
+
+This calls the Gemini API directly from your server. Google's free tier has
+rate limits (requests per minute/day) — if the site gets heavy submission
+traffic, watch for 429 errors in the logs and consider a paid tier.
 
 ## Embedding the gallery in Squarespace
 
