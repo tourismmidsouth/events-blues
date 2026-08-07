@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES, todayInChicago } from "@/lib/events";
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -48,7 +48,7 @@ const EMPTY_RESULT: ExtractedEventDetails = {
 };
 
 export async function POST(request: Request) {
-  if (!process.env.ANTHROPIC_API_KEY) {
+  if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json(
       { error: "AI flyer reading isn't configured on this deployment." },
       { status: 501 }
@@ -79,7 +79,11 @@ export async function POST(request: Request) {
   const arrayBuffer = await imageFile.arrayBuffer();
   const base64 = Buffer.from(arrayBuffer).toString("base64");
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({
+    model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+    generationConfig: { responseMimeType: "application/json" },
+  });
 
   const today = todayInChicago();
 
@@ -105,28 +109,18 @@ Respond with ONLY a single JSON object (no markdown fences, no commentary) with 
 
 If a field isn't shown on the flyer or you aren't reasonably confident, use null rather than guessing. Every value you return will be shown to a human for review before anything is saved, so it's fine to leave fields null.`;
 
-  let response;
+  let responseText: string;
   try {
-    response = await anthropic.messages.create({
-      model: process.env.ANTHROPIC_MODEL || "claude-3-5-sonnet-latest",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: imageFile.type as "image/jpeg" | "image/png" | "image/webp",
-                data: base64,
-              },
-            },
-            { type: "text", text: prompt },
-          ],
+    const result = await model.generateContent([
+      {
+        inlineData: {
+          mimeType: imageFile.type,
+          data: base64,
         },
-      ],
-    });
+      },
+      prompt,
+    ]);
+    responseText = result.response.text();
   } catch {
     return NextResponse.json(
       { error: "Couldn't read the flyer right now. Please fill in the form manually." },
@@ -134,15 +128,10 @@ If a field isn't shown on the flyer or you aren't reasonably confident, use null
     );
   }
 
-  const textBlock = response.content.find((block) => block.type === "text");
-  if (!textBlock || textBlock.type !== "text") {
-    return NextResponse.json({ result: EMPTY_RESULT });
-  }
-
   let parsed: Partial<ExtractedEventDetails>;
   try {
-    const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/);
-    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : textBlock.text);
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    parsed = JSON.parse(jsonMatch ? jsonMatch[0] : responseText);
   } catch {
     return NextResponse.json({ result: EMPTY_RESULT });
   }
