@@ -48,6 +48,16 @@ button {
   padding: 2rem 1.25rem 4rem;
 }
 
+.page-wide-compact {
+  padding: 0.5rem 0.75rem 1rem;
+}
+
+@media (max-width: 600px) {
+  .page-wide {
+    padding: 1.25rem 0.85rem 2.5rem;
+  }
+}
+
 h1 {
   font-size: 1.75rem;
   margin-bottom: 0.25rem;
@@ -153,7 +163,8 @@ button.primary:disabled {
   cursor: not-allowed;
 }
 
-button.secondary {
+button.secondary,
+a.secondary {
   background: #fff;
   color: var(--color-accent);
   border: 1px solid var(--color-accent);
@@ -162,6 +173,9 @@ button.secondary {
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+  line-height: 1.2;
 }
 
 button.danger {
@@ -213,7 +227,7 @@ th {
 .thumb {
   width: 56px;
   height: 56px;
-  object-fit: cover;
+  object-fit: contain;
   border-radius: 6px;
   background: #eee;
 }
@@ -294,7 +308,7 @@ th {
 .gallery-card img {
   width: 100%;
   height: 150px;
-  object-fit: cover;
+  object-fit: contain;
   background: #eee;
 }
 
@@ -314,6 +328,77 @@ th {
 .gallery-meta {
   color: var(--color-muted);
   font-size: 0.85rem;
+}
+
+.gallery-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.gallery-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.6rem;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: box-shadow 0.15s ease;
+}
+
+.gallery-list-item:hover {
+  box-shadow: 0 4px 12px rgba(31, 77, 54, 0.12);
+}
+
+.gallery-list-item img,
+.gallery-list-item .thumb {
+  width: 72px;
+  height: 72px;
+  flex-shrink: 0;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #eee;
+}
+
+.gallery-list-item-body h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.98rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--color-gold-dark);
+}
+
+@media (max-width: 480px) {
+  .gallery-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .gallery-card img {
+    height: 100px;
+  }
+
+  .gallery-card-body {
+    padding: 0.6rem 0.7rem 0.8rem;
+  }
+
+  .gallery-card-body h3 {
+    font-size: 0.85rem;
+  }
+
+  .gallery-meta {
+    font-size: 0.75rem;
+  }
+
+  .gallery-list-item img,
+  .gallery-list-item .thumb {
+    width: 56px;
+    height: 56px;
+  }
 }
 
 .modal-backdrop {
@@ -336,10 +421,18 @@ th {
   overflow-y: auto;
 }
 
+/* 40% wider than the base modal (560px * 1.4), used for the gallery detail
+   popup so there's room for the Add to Calendar buttons and map without
+   feeling cramped. Capped to the viewport width on narrow screens. */
+.modal-wide {
+  max-width: min(784px, 96vw);
+}
+
 .modal img {
   width: 100%;
   max-height: 280px;
-  object-fit: cover;
+  object-fit: contain;
+  background: #eee;
 }
 
 .modal-body {
