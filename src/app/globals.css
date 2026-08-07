@@ -1,10 +1,12 @@
 :root {
-  --color-bg: #f7f5f2;
-  --color-ink: #1e1a17;
-  --color-accent: #6a2c2c;
-  --color-accent-dark: #4a1e1e;
-  --color-muted: #7a746c;
-  --color-border: #ddd6cd;
+  --color-bg: #f6f4ee;
+  --color-ink: #1f2c22;
+  --color-accent: #1f4d36;
+  --color-accent-dark: #163826;
+  --color-gold: #c8992e;
+  --color-gold-dark: #a97e21;
+  --color-muted: #6f7a70;
+  --color-border: #dcd8cb;
   --color-card: #ffffff;
   --color-danger: #b3261e;
   --color-success: #2e7d32;
@@ -270,22 +272,43 @@ th {
   padding: 0;
   display: flex;
   flex-direction: column;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.gallery-card:hover {
+  box-shadow: 0 6px 18px rgba(31, 77, 54, 0.15);
+  transform: translateY(-2px);
+}
+
+.gallery-date-badge {
+  background: var(--color-accent);
+  color: #fff;
+  text-align: center;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .gallery-card img {
   width: 100%;
-  height: 160px;
+  height: 150px;
   object-fit: cover;
   background: #eee;
 }
 
 .gallery-card-body {
-  padding: 0.85rem 1rem 1.1rem;
+  padding: 0.9rem 1rem 1.1rem;
 }
 
 .gallery-card-body h3 {
-  margin: 0 0 0.3rem;
-  font-size: 1.05rem;
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--color-gold-dark);
 }
 
 .gallery-meta {
@@ -321,6 +344,27 @@ th {
 
 .modal-body {
   padding: 1.25rem 1.5rem 1.75rem;
+}
+
+.modal-body h2 {
+  color: var(--color-accent-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.modal-map {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+  overflow: hidden;
+}
+
+.modal-map iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
 }
 
 .modal-close {
