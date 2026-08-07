@@ -156,6 +156,7 @@ export async function POST(request: Request) {
     address: getString("address") || null,
     city: getString("city"),
     state: getString("state"),
+    venue_phone: getString("venue_phone") || null,
     event_url: eventUrl,
     cost: costRaw ? Number(costRaw) : null,
     direction_from_memphis: direction,

@@ -20,6 +20,7 @@ create table if not exists events (
   address text,
   city text,
   state text,
+  venue_phone text,
   event_url text,
   cost numeric,
   direction_from_memphis text,
@@ -42,6 +43,7 @@ create table if not exists events (
 alter table events add column if not exists address text;
 alter table events add column if not exists recurrence_frequency text not null default 'none';
 alter table events add column if not exists recurrence_end_date date;
+alter table events add column if not exists venue_phone text;
 
 alter table events drop constraint if exists moderation_status_check;
 alter table events add constraint moderation_status_check check (

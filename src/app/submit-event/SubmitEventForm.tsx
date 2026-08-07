@@ -162,6 +162,13 @@ export default function SubmitEventForm() {
       </div>
 
       <div className="field">
+        <label htmlFor="venue_phone">
+          Venue Phone <span className="hint">(optional)</span>
+        </label>
+        <input id="venue_phone" name="venue_phone" type="tel" placeholder="(901) 555-0123" />
+      </div>
+
+      <div className="field">
         <label htmlFor="event_url">Event Website *</label>
         <input id="event_url" name="event_url" type="url" placeholder="https://" required />
       </div>

@@ -23,6 +23,7 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
     address: event.address || "",
     city: event.city || "",
     state: event.state || "",
+    venue_phone: event.venue_phone || "",
     event_url: event.event_url || "",
     cost: event.cost?.toString() || "",
     direction_from_memphis: event.direction_from_memphis || "None",
@@ -57,6 +58,7 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
       address: form.address || null,
       city: form.city,
       state: form.state,
+      venue_phone: form.venue_phone || null,
       event_url: form.event_url,
       cost: form.cost ? Number(form.cost) : null,
       direction_from_memphis: form.direction_from_memphis,
@@ -215,6 +217,16 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
           <label htmlFor="state">State</label>
           <input id="state" value={form.state} onChange={(e) => update("state", e.target.value)} />
         </div>
+      </div>
+
+      <div className="field">
+        <label htmlFor="venue_phone">Venue Phone</label>
+        <input
+          id="venue_phone"
+          type="tel"
+          value={form.venue_phone}
+          onChange={(e) => update("venue_phone", e.target.value)}
+        />
       </div>
 
       <div className="field">

@@ -92,6 +92,12 @@ export default function Gallery({ events }: { events: PublicEventRecord[] }) {
                     .join(", ")}
                 </p>
               )}
+              {selected.venue_phone && (
+                <p>
+                  <strong>Phone:</strong>{" "}
+                  <a href={`tel:${selected.venue_phone}`}>{selected.venue_phone}</a>
+                </p>
+              )}
               {selected.cost !== null && (
                 <p>
                   <strong>Cost:</strong> ${selected.cost}

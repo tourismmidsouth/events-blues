@@ -28,6 +28,7 @@ export interface EventRecord {
   address: string | null;
   city: string | null;
   state: string | null;
+  venue_phone: string | null;
   event_url: string | null;
   cost: number | null;
   direction_from_memphis: Direction | null;
@@ -64,6 +65,7 @@ export const PUBLIC_EVENT_COLUMNS = [
   "address",
   "city",
   "state",
+  "venue_phone",
   "event_url",
   "cost",
   "direction_from_memphis",
