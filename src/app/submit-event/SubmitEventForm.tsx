@@ -47,25 +47,6 @@ const EMPTY_FORM: FormState = {
   submitter_email: "",
 };
 
-interface ExtractedEventDetails {
-  title: string | null;
-  description: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  start_time: string | null;
-  end_time: string | null;
-  venue_name: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  venue_phone: string | null;
-  event_url: string | null;
-  cost: number | null;
-  direction_from_memphis: string | null;
-  recurrence_frequency: string | null;
-  recurrence_end_date: string | null;
-}
-
 export default function SubmitEventForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -74,77 +55,13 @@ export default function SubmitEventForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [extractNotice, setExtractNotice] = useState<string | null>(null);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] || null;
-    setImageFile(file);
-    setExtractNotice(null);
-    if (!file) return;
-
-    setExtracting(true);
-    try {
-      const imageFormData = new FormData();
-      imageFormData.set("image", file);
-      const response = await fetch("/api/extract-event-details", {
-        method: "POST",
-        body: imageFormData,
-      });
-
-      if (!response.ok) {
-        if (response.status !== 501) {
-          setExtractNotice(
-            "Couldn't read details from that image automatically — no problem, just fill in the form below."
-          );
-        }
-        return;
-      }
-
-      const { result } = (await response.json()) as { result: ExtractedEventDetails };
-
-      setForm((prev) => ({
-        ...prev,
-        title: result.title || prev.title,
-        description: result.description || prev.description,
-        start_date: result.start_date || prev.start_date,
-        end_date: result.end_date || prev.end_date,
-        start_time: result.start_time || prev.start_time,
-        end_time: result.end_time || prev.end_time,
-        venue_name: result.venue_name || prev.venue_name,
-        address: result.address || prev.address,
-        city: result.city || prev.city,
-        state: result.state || prev.state,
-        venue_phone: result.venue_phone || prev.venue_phone,
-        event_url: result.event_url || prev.event_url,
-        cost: result.cost !== null && result.cost !== undefined ? String(result.cost) : prev.cost,
-        direction_from_memphis: DIRECTION_OPTIONS.includes(
-          result.direction_from_memphis as (typeof DIRECTION_OPTIONS)[number]
-        )
-          ? (result.direction_from_memphis as (typeof DIRECTION_OPTIONS)[number])
-          : prev.direction_from_memphis,
-        recurrence_frequency: RECURRENCE_FREQUENCIES.includes(
-          result.recurrence_frequency as (typeof RECURRENCE_FREQUENCIES)[number]
-        )
-          ? (result.recurrence_frequency as (typeof RECURRENCE_FREQUENCIES)[number])
-          : prev.recurrence_frequency,
-        recurrence_end_date: result.recurrence_end_date || prev.recurrence_end_date,
-      }));
-
-      setExtractNotice(
-        "We pre-filled the form from your photo — please double-check everything below before submitting."
-      );
-    } catch {
-      setExtractNotice(
-        "Couldn't read details from that image automatically — no problem, just fill in the form below."
-      );
-    } finally {
-      setExtracting(false);
-    }
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setImageFile(e.target.files?.[0] || null);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -194,10 +111,7 @@ export default function SubmitEventForm() {
     <form className="form-grid" onSubmit={handleSubmit}>
       <div className="field">
         <label htmlFor="image">Event Image *</label>
-        <span className="hint">
-          JPG, PNG, or WebP. Max 10 MB. Upload a flyer first and we&apos;ll try to
-          pre-fill the form for you.
-        </span>
+        <span className="hint">JPG, PNG, or WebP. Max 10 MB.</span>
         <input
           ref={fileInputRef}
           id="image"
@@ -205,8 +119,6 @@ export default function SubmitEventForm() {
           accept="image/jpeg,image/png,image/webp"
           onChange={handleImageChange}
         />
-        {extracting && <span className="hint">Reading flyer with AI…</span>}
-        {!extracting && extractNotice && <span className="hint">{extractNotice}</span>}
       </div>
 
       <div className="field">

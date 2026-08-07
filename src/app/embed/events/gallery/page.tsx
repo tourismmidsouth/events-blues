@@ -9,15 +9,25 @@ import {
 } from "@/lib/events";
 
 // Public route: uses the anon key directly (no cookies needed) so this page
-// can be safely embedded in a cross-origin iframe.
+// can be safely embedded in a cross-origin iframe. Every export below exists
+// to guarantee this page is re-fetched fresh on every load rather than
+// served from any cache layer — an event that was upcoming an hour ago can
+// be past now, and this is the only place "past" is decided for visitors.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 async function getUpcomingOccurrences(): Promise<EventOccurrence<PublicEventRecord>[]> {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { cookies: { getAll: () => [], setAll: () => {} } }
+    {
+      cookies: { getAll: () => [], setAll: () => {} },
+      global: {
+        fetch: (url: RequestInfo | URL, options?: RequestInit) =>
+          fetch(url, { ...options, cache: "no-store" }),
+      },
+    }
   );
 
   // RLS already restricts anon reads to published rows whose series hasn't
