@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+    model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
     generationConfig: { responseMimeType: "application/json" },
   });
 
@@ -121,7 +121,8 @@ If a field isn't shown on the flyer or you aren't reasonably confident, use null
       prompt,
     ]);
     responseText = result.response.text();
-  } catch {
+  } catch (err) {
+    console.error("extract-event-details: Gemini request failed", err);
     return NextResponse.json(
       { error: "Couldn't read the flyer right now. Please fill in the form manually." },
       { status: 502 }
