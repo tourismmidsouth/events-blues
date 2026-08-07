@@ -9,6 +9,9 @@ export const MODERATION_STATUSES = [
 ] as const;
 export type ModerationStatus = (typeof MODERATION_STATUSES)[number];
 
+export const RECURRENCE_FREQUENCIES = ["none", "daily", "weekly", "monthly"] as const;
+export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number];
+
 export const EVENT_TIMEZONE = "America/Chicago";
 
 export interface EventRecord {
@@ -22,12 +25,16 @@ export interface EventRecord {
   end_date: string | null;
   end_time: string | null;
   venue_name: string | null;
+  address: string | null;
   city: string | null;
   state: string | null;
+  venue_phone: string | null;
   event_url: string | null;
   cost: number | null;
   direction_from_memphis: Direction | null;
   miles_from_downtown_memphis: number | null;
+  recurrence_frequency: RecurrenceFrequency | null;
+  recurrence_end_date: string | null;
   submitter_name: string;
   submitter_email: string;
   image_rights_confirmed: boolean;
@@ -55,12 +62,16 @@ export const PUBLIC_EVENT_COLUMNS = [
   "end_date",
   "end_time",
   "venue_name",
+  "address",
   "city",
   "state",
+  "venue_phone",
   "event_url",
   "cost",
   "direction_from_memphis",
   "miles_from_downtown_memphis",
+  "recurrence_frequency",
+  "recurrence_end_date",
   "image_rights_confirmed",
   "moderation_status",
   "submitted_at",
@@ -69,11 +80,32 @@ export const PUBLIC_EVENT_COLUMNS = [
   "updated_at",
 ].join(",");
 
-// An event is "past" once its effective end date (end_date, falling back to
-// start_date) is before today, evaluated in the America/Chicago timezone.
-export function isPastEvent(event: Pick<EventRecord, "start_date" | "end_date">): boolean {
-  const effectiveDate = event.end_date || event.start_date;
+function isRecurring(
+  event: Pick<EventRecord, "recurrence_frequency">
+): boolean {
+  return !!event.recurrence_frequency && event.recurrence_frequency !== "none";
+}
+
+// An event is "past" once its effective end date is before today, evaluated
+// in the America/Chicago timezone. For a recurring event, the effective end
+// date is the recurrence end date (the series isn't over just because its
+// first occurrence passed); otherwise it's end_date, falling back to
+// start_date.
+export function isPastEvent(
+  event: Pick<
+    EventRecord,
+    "start_date" | "end_date" | "recurrence_frequency" | "recurrence_end_date"
+  >
+): boolean {
   const today = todayInChicago();
+
+  if (isRecurring(event)) {
+    // No recurrence end date set means the series is treated as ongoing.
+    if (!event.recurrence_end_date) return false;
+    return event.recurrence_end_date < today;
+  }
+
+  const effectiveDate = event.end_date || event.start_date;
   return effectiveDate < today;
 }
 
@@ -108,4 +140,30 @@ export function formatTime(time: string | null): string {
   const [hours, minutes] = time.split(":").map(Number);
   const date = new Date(2000, 0, 1, hours, minutes);
   return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+// Human-readable recurrence description, e.g. "Weekly through Dec 20, 2026".
+export function formatRecurrence(
+  event: Pick<EventRecord, "recurrence_frequency" | "recurrence_end_date">
+): string | null {
+  if (!isRecurring(event)) return null;
+
+  const frequencyLabel: Record<Exclude<RecurrenceFrequency, "none">, string> = {
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly",
+  };
+
+  const label = frequencyLabel[event.recurrence_frequency as Exclude<RecurrenceFrequency, "none">];
+
+  if (!event.recurrence_end_date) return label;
+
+  const [year, month, day] = event.recurrence_end_date.split("-").map(Number);
+  const endDate = new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+  return `${label} through ${endDate}`;
 }
