@@ -1,7 +1,24 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES } from "@/lib/events";
+import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES, slugify } from "@/lib/events";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// Appends -2, -3, ... until an unused slug is found.
+async function uniqueSlug(supabase: SupabaseClient, title: string): Promise<string> {
+  const base = slugify(title);
+  let candidate = base;
+  let suffix = 2;
+  // Bounded loop: this only runs at submission time on a small table, and a
+  // real collision run this long would indicate something else is wrong.
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const { data } = await supabase.from("events").select("id").eq("slug", candidate).maybeSingle();
+    if (!data) return candidate;
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+  return `${base}-${randomUUID().slice(0, 8)}`;
+}
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -143,7 +160,10 @@ export async function POST(request: Request) {
     data: { publicUrl },
   } = supabase.storage.from("event-images").getPublicUrl(imagePath);
 
+  const slug = await uniqueSlug(supabase, getString("title"));
+
   const { error: insertError } = await supabase.from("events").insert({
+    slug,
     title: getString("title"),
     description: getString("description"),
     image_url: publicUrl,

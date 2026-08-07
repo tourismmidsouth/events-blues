@@ -8,6 +8,7 @@ create extension if not exists "pgcrypto";
 
 create table if not exists events (
   id uuid primary key default gen_random_uuid(),
+  slug text,
   title text not null,
   description text not null,
   image_url text,
@@ -44,6 +45,38 @@ alter table events add column if not exists address text;
 alter table events add column if not exists recurrence_frequency text not null default 'none';
 alter table events add column if not exists recurrence_end_date date;
 alter table events add column if not exists venue_phone text;
+alter table events add column if not exists slug text;
+
+-- Backfill slugs for any existing rows that don't have one yet (new rows
+-- get theirs computed by the app at submission time, with the same
+-- collision-suffix scheme). Safe to re-run: only fills in nulls.
+update events
+set slug = sub.new_slug
+from (
+  select
+    id,
+    case when rn = 1 then base_slug else base_slug || '-' || rn::text end as new_slug
+  from (
+    select
+      id,
+      nullif(regexp_replace(regexp_replace(lower(title), '[^a-z0-9]+', '-', 'g'), '(^-+|-+$)', '', 'g'), '') as base_slug,
+      row_number() over (
+        partition by regexp_replace(regexp_replace(lower(title), '[^a-z0-9]+', '-', 'g'), '(^-+|-+$)', '', 'g')
+        order by submitted_at, id
+      ) as rn
+    from events
+    where slug is null
+  ) numbered
+) sub
+where events.id = sub.id
+  and sub.base_slug is not null;
+
+update events set slug = 'event-' || substr(id::text, 1, 8) where slug is null;
+
+alter table events alter column slug set not null;
+
+drop index if exists events_slug_idx;
+create unique index events_slug_idx on events (slug);
 
 alter table events drop constraint if exists moderation_status_check;
 alter table events add constraint moderation_status_check check (

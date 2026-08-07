@@ -74,6 +74,10 @@ export default async function PublicGalleryPage({
   const initialView = parseView(searchParams.view);
   const showToggle = parseBoolean(searchParams.toggle, true);
   const showTitle = parseBoolean(searchParams.title, true);
+  const cardLinkUrlParam = Array.isArray(searchParams.cardLinkUrl)
+    ? searchParams.cardLinkUrl[0]
+    : searchParams.cardLinkUrl;
+  const cardLinkUrl = cardLinkUrlParam || undefined;
 
   return (
     <main className={showTitle ? "page-wide" : "page-wide page-wide-compact"}>
@@ -82,6 +86,7 @@ export default async function PublicGalleryPage({
         occurrences={occurrences}
         initialView={initialView}
         showToggle={showToggle}
+        cardLinkUrl={cardLinkUrl}
       />
     </main>
   );
