@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { formatDateRange, formatTime, type PublicEventRecord } from "@/lib/events";
+import {
+  formatDateRange,
+  formatRecurrence,
+  formatTime,
+  type PublicEventRecord,
+} from "@/lib/events";
 
 function formatDateBadge(dateStr: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -11,8 +16,12 @@ function formatDateBadge(dateStr: string): string {
     .toUpperCase();
 }
 
-function mapEmbedSrc(event: Pick<PublicEventRecord, "venue_name" | "city" | "state">): string {
-  const query = [event.venue_name, event.city, event.state].filter(Boolean).join(", ");
+function mapEmbedSrc(
+  event: Pick<PublicEventRecord, "venue_name" | "address" | "city" | "state">
+): string {
+  const query = [event.venue_name, event.address, event.city, event.state]
+    .filter(Boolean)
+    .join(", ");
   return `https://www.google.com/maps?q=${encodeURIComponent(query)}&output=embed`;
 }
 
@@ -42,7 +51,7 @@ export default function Gallery({ events }: { events: PublicEventRecord[] }) {
             <div className="gallery-card-body">
               <h3>{event.title}</h3>
               <div className="gallery-meta">
-                {formatDateRange(event.start_date, event.end_date)}
+                {formatRecurrence(event) || formatDateRange(event.start_date, event.end_date)}
               </div>
               <div className="gallery-meta">
                 {[event.venue_name, event.city].filter(Boolean).join(", ")}
@@ -70,10 +79,17 @@ export default function Gallery({ events }: { events: PublicEventRecord[] }) {
                 {selected.start_time && <> at {formatTime(selected.start_time)}</>}
                 {selected.end_time && <> – {formatTime(selected.end_time)}</>}
               </p>
-              {(selected.venue_name || selected.city || selected.state) && (
+              {formatRecurrence(selected) && (
+                <p>
+                  <strong>Repeats:</strong> {formatRecurrence(selected)}
+                </p>
+              )}
+              {(selected.venue_name || selected.address || selected.city || selected.state) && (
                 <p>
                   <strong>Venue:</strong>{" "}
-                  {[selected.venue_name, selected.city, selected.state].filter(Boolean).join(", ")}
+                  {[selected.venue_name, selected.address, selected.city, selected.state]
+                    .filter(Boolean)
+                    .join(", ")}
                 </p>
               )}
               {selected.cost !== null && (

@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { DIRECTION_OPTIONS } from "@/lib/events";
+import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES } from "@/lib/events";
 
 export default function SubmitEventForm() {
   const formRef = useRef<HTMLFormElement>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<
+    (typeof RECURRENCE_FREQUENCIES)[number]
+  >("none");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -105,8 +108,46 @@ export default function SubmitEventForm() {
       </div>
 
       <div className="field">
+        <label htmlFor="recurrence_frequency">Repeats</label>
+        <select
+          id="recurrence_frequency"
+          name="recurrence_frequency"
+          value={recurrenceFrequency}
+          onChange={(e) =>
+            setRecurrenceFrequency(e.target.value as (typeof RECURRENCE_FREQUENCIES)[number])
+          }
+        >
+          {RECURRENCE_FREQUENCIES.map((option) => (
+            <option key={option} value={option}>
+              {option === "none" ? "Does not repeat" : option.charAt(0).toUpperCase() + option.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {recurrenceFrequency !== "none" && (
+        <div className="field">
+          <label htmlFor="recurrence_end_date">Repeats Until *</label>
+          <span className="hint">Last date this event occurs.</span>
+          <input
+            id="recurrence_end_date"
+            name="recurrence_end_date"
+            type="date"
+            required
+          />
+        </div>
+      )}
+
+      <div className="field">
         <label htmlFor="venue_name">Venue Name *</label>
         <input id="venue_name" name="venue_name" type="text" required />
+      </div>
+
+      <div className="field">
+        <label htmlFor="address">
+          Street Address <span className="hint">(optional)</span>
+        </label>
+        <input id="address" name="address" type="text" placeholder="123 Main St" />
       </div>
 
       <div className="field-row">

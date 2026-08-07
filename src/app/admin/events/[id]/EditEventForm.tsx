@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { DIRECTION_OPTIONS, MODERATION_STATUSES, type EventRecord } from "@/lib/events";
+import {
+  DIRECTION_OPTIONS,
+  MODERATION_STATUSES,
+  RECURRENCE_FREQUENCIES,
+  type EventRecord,
+} from "@/lib/events";
 
 export default function EditEventForm({ event }: { event: EventRecord }) {
   const router = useRouter();
@@ -15,12 +20,15 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
     end_date: event.end_date || "",
     end_time: event.end_time || "",
     venue_name: event.venue_name || "",
+    address: event.address || "",
     city: event.city || "",
     state: event.state || "",
     event_url: event.event_url || "",
     cost: event.cost?.toString() || "",
     direction_from_memphis: event.direction_from_memphis || "None",
     miles_from_downtown_memphis: event.miles_from_downtown_memphis?.toString() || "",
+    recurrence_frequency: event.recurrence_frequency || "none",
+    recurrence_end_date: event.recurrence_end_date || "",
     moderation_status: event.moderation_status,
   });
   const [saving, setSaving] = useState(false);
@@ -46,6 +54,7 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
       end_date: form.end_date || null,
       end_time: form.end_time || null,
       venue_name: form.venue_name,
+      address: form.address || null,
       city: form.city,
       state: form.state,
       event_url: form.event_url,
@@ -54,6 +63,8 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
       miles_from_downtown_memphis: form.miles_from_downtown_memphis
         ? Number(form.miles_from_downtown_memphis)
         : null,
+      recurrence_frequency: form.recurrence_frequency,
+      recurrence_end_date: form.recurrence_frequency !== "none" ? form.recurrence_end_date || null : null,
       moderation_status: form.moderation_status,
     };
 
@@ -151,11 +162,47 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
       </div>
 
       <div className="field">
+        <label htmlFor="recurrence_frequency">Repeats</label>
+        <select
+          id="recurrence_frequency"
+          value={form.recurrence_frequency}
+          onChange={(e) => update("recurrence_frequency", e.target.value as typeof form.recurrence_frequency)}
+        >
+          {RECURRENCE_FREQUENCIES.map((option) => (
+            <option key={option} value={option}>
+              {option === "none" ? "Does not repeat" : option.charAt(0).toUpperCase() + option.slice(1)}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {form.recurrence_frequency !== "none" && (
+        <div className="field">
+          <label htmlFor="recurrence_end_date">Repeats Until</label>
+          <input
+            id="recurrence_end_date"
+            type="date"
+            value={form.recurrence_end_date}
+            onChange={(e) => update("recurrence_end_date", e.target.value)}
+          />
+        </div>
+      )}
+
+      <div className="field">
         <label htmlFor="venue_name">Venue Name</label>
         <input
           id="venue_name"
           value={form.venue_name}
           onChange={(e) => update("venue_name", e.target.value)}
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="address">Street Address</label>
+        <input
+          id="address"
+          value={form.address}
+          onChange={(e) => update("address", e.target.value)}
         />
       </div>
 
