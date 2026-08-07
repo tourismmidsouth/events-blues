@@ -90,18 +90,79 @@ traffic, watch for 429 errors in the logs and consider a paid tier.
 
 ## Embedding the gallery in Squarespace
 
-Add a Code Block in Squarespace 7.1 with:
+The gallery page (`/embed/events/gallery`) supports a few query string
+options:
+
+- `?limit=3` — show only the next N upcoming occurrences (useful for a
+  homepage teaser)
+- `?view=grid` or `?view=list` — starting view (defaults to `grid`)
+- `?toggle=0` — hide the Grid/List switcher (useful for a compact embed
+  where you've already picked a fixed view)
+- `?title=0` — hide the "Upcoming Blues Backroads Events" heading (useful
+  when the surrounding page already has its own heading)
+
+A recurring event (e.g. "every Thursday in September") shows up as one
+card per date, not a single "weekly" card.
+
+### Full events calendar (with grid/list toggle)
+
+Add a **Code Block** in Squarespace 7.1 with:
 
 ```html
 <iframe
+  id="blues-backroads-gallery"
   src="https://YOUR-VERCEL-DOMAIN.vercel.app/embed/events/gallery"
   width="100%"
   height="1000"
-  frameborder="0"
+  style="border:0; display:block;"
   loading="lazy"
   title="Blues Backroads Events">
 </iframe>
+<script>
+  window.addEventListener("message", function (event) {
+    if (event.data && event.data.type === "blues-backroads-gallery-height") {
+      var iframe = document.getElementById("blues-backroads-gallery");
+      if (iframe) iframe.style.height = event.data.height + "px";
+    }
+  });
+</script>
 ```
+
+The script listens for a height message the page posts whenever its
+content changes (view toggled, modal opened) and resizes the iframe to
+match — this keeps it from getting clipped or leaving extra blank space on
+mobile, where card layout height varies a lot. If you embed the gallery
+more than once on the same page (e.g. once here and once for the homepage
+snippet below), give each iframe a unique `id` and match it in its own
+`<script>` block.
+
+### Homepage teaser: 3 most upcoming events
+
+Same idea, scoped down with query params — a compact list of the next 3
+events, no heading, no view toggle:
+
+```html
+<iframe
+  id="blues-backroads-upcoming"
+  src="https://YOUR-VERCEL-DOMAIN.vercel.app/embed/events/gallery?limit=3&view=list&toggle=0&title=0"
+  width="100%"
+  height="400"
+  style="border:0; display:block;"
+  loading="lazy"
+  title="Upcoming Blues Backroads Events">
+</iframe>
+<script>
+  window.addEventListener("message", function (event) {
+    if (event.data && event.data.type === "blues-backroads-gallery-height") {
+      var iframe = document.getElementById("blues-backroads-upcoming");
+      if (iframe) iframe.style.height = event.data.height + "px";
+    }
+  });
+</script>
+```
+
+Swap `view=list` for `view=grid` if you'd rather show 3 image cards
+instead of a compact list.
 
 ## How past events are hidden
 
