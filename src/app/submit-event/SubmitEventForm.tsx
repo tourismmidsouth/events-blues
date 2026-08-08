@@ -327,10 +327,10 @@ export default function SubmitEventForm() {
         <label htmlFor="event_url">Event Website *</label>
         <input
           id="event_url"
-          type="url"
+          type="text"
           value={form.event_url}
           onChange={(e) => update("event_url", e.target.value)}
-          placeholder="https://"
+          placeholder="facebook.com/yourevent"
           required
         />
       </div>

@@ -48,6 +48,22 @@ export interface EventRecord {
 
 // Turns a title into a URL-safe slug: lowercase, alphanumerics and hyphens
 // only, no leading/trailing/repeated hyphens.
+// Accepts bare domains like "facebook.com" or "www.facebook.com" in addition
+// to full URLs — prepends https:// when no scheme is present. Returns null
+// if the value still isn't a usable URL.
+export function normalizeUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  try {
+    const url = new URL(candidate);
+    if (!url.hostname.includes(".")) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function slugify(title: string): string {
   return title
     .toLowerCase()
