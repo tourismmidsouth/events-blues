@@ -62,6 +62,41 @@ npm run dev
 Push this repo to GitHub and import it into Vercel. Add the same four
 environment variables in the Vercel project settings, then deploy.
 
+### 7. (Optional) Enable CAPTCHA on the submission form
+
+Without this set up, `/submit-event` has no CAPTCHA and is more exposed to
+bot/spam submissions (the profanity filter below still applies regardless).
+
+1. Go to [google.com/recaptcha/admin](https://www.google.com/recaptcha/admin)
+   and register a new site — choose **reCAPTCHA v2, "I'm not a robot"
+   Checkbox**. Add your Vercel domain (and `localhost` if you test locally).
+2. You'll get a **Site Key** and a **Secret Key**. In Vercel → your project
+   → Settings → Environment Variables, add:
+   ```
+   NEXT_PUBLIC_RECAPTCHA_SITE_KEY=your-site-key
+   RECAPTCHA_SECRET_KEY=your-secret-key
+   ```
+   The site key is safe for the browser (it's meant to be public); the
+   secret key must stay server-side only.
+3. Redeploy. The submission form will now show a CAPTCHA checkbox, and
+   `/api/submit-event` verifies the token server-side before accepting a
+   submission — a missing or invalid token is rejected the same as any
+   other validation error.
+
+## Submission screening
+
+Two layers run on every `/submit-event` POST, before anything is saved:
+
+- **CAPTCHA** (if configured, see above) — blocks automated/bot submissions.
+- **Profanity filter** — the title, description, venue name, address, and
+  submitter name are checked against a profanity wordlist (the `bad-words`
+  package). A flagged submission is rejected with an error shown to the
+  submitter; nothing is uploaded or inserted, so it never reaches the admin
+  dashboard. This is a wordlist match, not a full content-moderation
+  system — it won't catch everything inappropriate and can occasionally
+  false-positive on an innocuous word; there's no allowlist/override UI for
+  that yet.
+
 ## Embedding the gallery in Squarespace
 
 The gallery page (`/embed/events/gallery`) supports a few query string
