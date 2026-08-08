@@ -55,6 +55,7 @@ set slug = sub.new_slug
 from (
   select
     id,
+    base_slug,
     case when rn = 1 then base_slug else base_slug || '-' || rn::text end as new_slug
   from (
     select
