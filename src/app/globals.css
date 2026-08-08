@@ -509,3 +509,57 @@ th {
   color: #fff;
   border-color: var(--color-accent);
 }
+
+.bb-explore-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 260px;
+  margin-bottom: 1.5rem;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  text-decoration: none;
+}
+
+.bb-explore-title {
+  text-align: center;
+  color: #f4f1ea;
+  margin: 0 auto;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.bb-explore-top {
+  font-family: "Clarendon Bold", "URW Clarendon", "Clarendon", "Egyptienne", "Rockwell Extra Bold", "Rockwell",
+    Georgia, serif;
+  font-size: clamp(52px, 6vw, 110px);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  line-height: 0.9;
+}
+
+.bb-explore-script {
+  font-family: "SignPainter", "Sign Painter House Script", "SignPainter-HouseScript", "Thirsty Script",
+    "Lobster Two", "Brush Script MT", cursive;
+  font-size: clamp(86px, 12vw, 205px);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 0.75;
+  margin-top: 0.08em;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .bb-explore-top {
+    font-size: clamp(38px, 12vw, 64px);
+  }
+  .bb-explore-script {
+    font-size: clamp(58px, 17vw, 95px);
+    white-space: normal;
+    line-height: 0.8;
+  }
+}
