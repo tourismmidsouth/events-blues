@@ -510,6 +510,18 @@ th {
   border-color: var(--color-accent);
 }
 
+.back-to-all-events {
+  display: inline-block;
+  margin-bottom: 1rem;
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.back-to-all-events:hover {
+  text-decoration: underline;
+}
+
 .bb-explore-hero {
   display: flex;
   align-items: center;

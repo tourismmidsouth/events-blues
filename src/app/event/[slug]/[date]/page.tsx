@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
+import SiteHeader from "@/components/SiteHeader";
 import {
   PUBLIC_EVENT_COLUMNS,
   buildGoogleCalendarUrl,
@@ -156,12 +157,18 @@ export default async function EventPage({
   };
 
   return (
-    <main className="page">
+    <>
+      <SiteHeader />
+      <main className="page">
       {/* eslint-disable-next-line react/no-danger */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+
+      <a href="https://bluesbackroads.com/events" className="back-to-all-events">
+        &laquo; All Events
+      </a>
 
       <a
         href="https://bluesbackroads.com/events"
@@ -256,6 +263,7 @@ export default async function EventPage({
           </div>
         )}
       </div>
-    </main>
+      </main>
+    </>
   );
 }
