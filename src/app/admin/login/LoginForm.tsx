@@ -14,6 +14,7 @@ export default function LoginForm() {
   const [sent, setSent] = useState(false);
   const [helpRequested, setHelpRequested] = useState(false);
   const [helpLoading, setHelpLoading] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
 
   async function handlePasswordSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -28,6 +29,7 @@ export default function LoginForm() {
 
     if (signInError) {
       setError("Invalid email or password.");
+      setFailedAttempts((prev) => prev + 1);
       setLoading(false);
       return;
     }
@@ -165,9 +167,11 @@ export default function LoginForm() {
           {loading ? "Signing in…" : "Sign In"}
         </button>
       </div>
-      <button type="button" className="link" onClick={() => switchMode("magic-link")}>
-        Forgot your password? Use a magic link instead
-      </button>
+      {failedAttempts >= 2 && (
+        <button type="button" className="link" onClick={() => switchMode("magic-link")}>
+          Forgot your password? Use a magic link instead
+        </button>
+      )}
     </form>
   );
 }

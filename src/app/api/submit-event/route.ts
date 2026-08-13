@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { Filter } from "bad-words";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES, normalizeUrl, slugify } from "@/lib/events";
+import { sendEmail } from "@/lib/resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const profanityFilter = new Filter();
@@ -232,6 +233,18 @@ export async function POST(request: Request) {
       { error: "Failed to save event. Please try again." },
       { status: 500 }
     );
+  }
+
+  try {
+    await sendEmail({
+      to: "tourism@midsouthdd.org",
+      subject: "New event submission awaiting review",
+      text: `A new event was just submitted: "${getString("title")}"
+
+Log in to review it here: https://events.bluesbackroads.com/admin/login`,
+    });
+  } catch (err) {
+    console.error("Failed to send new-submission alert email:", err);
   }
 
   return NextResponse.json({ success: true });

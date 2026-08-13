@@ -152,7 +152,11 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId: event.id }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (!res.ok) console.error("notify-approved request failed:", res.status);
+        })
+        .catch((err) => console.error("notify-approved request failed:", err));
     }
 
     setNewImageFile(null);
