@@ -73,6 +73,10 @@ export default function SubmitEventForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [showTicketOption, setShowTicketOption] = useState(false);
+  const [ticketEmail, setTicketEmail] = useState("");
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [ticketSent, setTicketSent] = useState(false);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -97,9 +101,25 @@ export default function SubmitEventForm() {
     setImageFile(e.target.files?.[0] || null);
   }
 
+  async function handleTicketSubmit() {
+    setTicketSubmitting(true);
+    try {
+      await fetch("/api/support-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: ticketEmail, details: error }),
+      });
+    } finally {
+      setTicketSubmitting(false);
+      setTicketSent(true);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setShowTicketOption(false);
+    setTicketSent(false);
 
     if (!imageFile) {
       setError("Event image is required.");
@@ -131,6 +151,7 @@ export default function SubmitEventForm() {
 
       if (!response.ok) {
         setError(result.error || "Something went wrong. Please try again.");
+        setShowTicketOption(true);
         setSubmitting(false);
         if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
           window.grecaptcha.reset(recaptchaWidgetId.current ?? undefined);
@@ -141,6 +162,7 @@ export default function SubmitEventForm() {
       setSubmitted(true);
     } catch {
       setError("Something went wrong. Please try again.");
+      setShowTicketOption(true);
       setSubmitting(false);
     }
   }
@@ -431,6 +453,33 @@ export default function SubmitEventForm() {
       )}
 
       {error && <p className="error-text">{error}</p>}
+
+      {showTicketOption &&
+        (ticketSent ? (
+          <p>Thanks — we&apos;ll be in touch within 1 business day.</p>
+        ) : (
+          <div className="field">
+            <label htmlFor="ticket_email">
+              Still having trouble? Enter your email and we&apos;ll help
+              resolve this within 1 business day.
+            </label>
+            <input
+              id="ticket_email"
+              type="email"
+              value={ticketEmail}
+              onChange={(e) => setTicketEmail(e.target.value)}
+            />
+            <div>
+              <button
+                type="button"
+                onClick={handleTicketSubmit}
+                disabled={ticketSubmitting || !ticketEmail}
+              >
+                {ticketSubmitting ? "Sending…" : "Send Support Request"}
+              </button>
+            </div>
+          </div>
+        ))}
 
       <div>
         <button type="submit" className="primary" disabled={submitting}>

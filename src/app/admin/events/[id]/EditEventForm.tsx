@@ -147,6 +147,14 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
       await supabase.storage.from("event-images").remove([event.image_path]);
     }
 
+    if (form.moderation_status === "published" && event.moderation_status !== "published") {
+      fetch("/api/events/notify-approved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: event.id }),
+      }).catch(() => {});
+    }
+
     setNewImageFile(null);
     setSavedMessage("Changes saved.");
     setSaving(false);
