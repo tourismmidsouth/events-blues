@@ -14,7 +14,10 @@ export default function AdminLoginPage({
       <p className="subtitle">Sign in to manage event submissions.</p>
       {authError && (
         <div className="card">
-          <p className="error-text">Sign-in link failed: {authError}</p>
+          <p className="error-text">
+            Your sign-in link didn&apos;t work. This can happen if it expired
+            or was opened somewhere other than where it was requested.
+          </p>
           <AuthErrorHelp authError={authError} />
         </div>
       )}
