@@ -1,4 +1,5 @@
 import LoginForm from "./LoginForm";
+import AuthErrorHelp from "./AuthErrorHelp";
 
 export default function AdminLoginPage({
   searchParams,
@@ -11,7 +12,12 @@ export default function AdminLoginPage({
     <main className="page" style={{ maxWidth: 420 }}>
       <h1>Admin Login</h1>
       <p className="subtitle">Sign in to manage event submissions.</p>
-      {authError && <p className="error-text">Sign-in link failed: {authError}</p>}
+      {authError && (
+        <div className="card">
+          <p className="error-text">Sign-in link failed: {authError}</p>
+          <AuthErrorHelp authError={authError} />
+        </div>
+      )}
       <div className="card">
         <LoginForm />
       </div>

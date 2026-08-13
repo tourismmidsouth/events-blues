@@ -6,7 +6,7 @@ function isValidEmail(value: string) {
 }
 
 export async function POST(request: Request) {
-  let body: { email?: unknown };
+  let body: { email?: unknown; details?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -17,12 +17,15 @@ export async function POST(request: Request) {
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Invalid email." }, { status: 400 });
   }
+  const details = typeof body.details === "string" && body.details.trim()
+    ? body.details.trim()
+    : "Admin couldn't get their magic-link sign-in email.";
 
   try {
     await createSupportTicket({
       ticketType: "admin_login_help",
       email,
-      details: "Admin couldn't get their magic-link sign-in email.",
+      details,
     });
   } catch {
     return NextResponse.json({ error: "Failed to send request." }, { status: 500 });
