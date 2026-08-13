@@ -7,6 +7,7 @@ import {
   DIRECTION_OPTIONS,
   MODERATION_STATUSES,
   RECURRENCE_FREQUENCIES,
+  normalizeUrl,
   type EventRecord,
 } from "@/lib/events";
 
@@ -111,7 +112,7 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
       city: form.city,
       state: form.state,
       venue_phone: form.venue_phone || null,
-      event_url: form.event_url,
+      event_url: form.event_url ? normalizeUrl(form.event_url) || form.event_url : "",
       cost: form.cost ? Number(form.cost) : null,
       direction_from_memphis: form.direction_from_memphis,
       miles_from_downtown_memphis: form.miles_from_downtown_memphis
@@ -302,9 +303,10 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
         <label htmlFor="event_url">Event Website</label>
         <input
           id="event_url"
-          type="url"
+          type="text"
           value={form.event_url}
           onChange={(e) => update("event_url", e.target.value)}
+          placeholder="facebook.com/yourevent"
         />
       </div>
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { Filter } from "bad-words";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES, slugify } from "@/lib/events";
+import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES, normalizeUrl, slugify } from "@/lib/events";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const profanityFilter = new Filter();
@@ -63,15 +63,6 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function isValidUrl(value: string) {
-  try {
-    new URL(value);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function POST(request: Request) {
   let formData: FormData;
   try {
@@ -98,8 +89,9 @@ export async function POST(request: Request) {
     errors.push("Submitter email is invalid.");
   }
 
-  const eventUrl = getString("event_url");
-  if (eventUrl && !isValidUrl(eventUrl)) {
+  const eventUrlRaw = getString("event_url");
+  const eventUrl = eventUrlRaw ? normalizeUrl(eventUrlRaw) : "";
+  if (eventUrlRaw && !eventUrl) {
     errors.push("Event website must be a valid URL.");
   }
 
