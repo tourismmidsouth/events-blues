@@ -175,6 +175,32 @@ create policy "Admins can delete events"
 -- No insert policy for anon/authenticated: submissions are written by the
 -- server-side API route using the service role key, which bypasses RLS.
 
+-- Support tickets -----------------------------------------------------------
+-- Logged whenever a user hits a dead end (event submission error, admin
+-- magic-link trouble) and asks for help. Written server-side with the
+-- service role key; read back by the weekly report cron.
+
+create table if not exists support_tickets (
+  id uuid primary key default gen_random_uuid(),
+  ticket_type text not null,
+  email text not null,
+  details text,
+  created_at timestamptz default now()
+);
+
+alter table support_tickets drop constraint if exists support_tickets_type_check;
+alter table support_tickets add constraint support_tickets_type_check check (
+  ticket_type in ('event_submission_error', 'admin_login_help')
+);
+
+create index if not exists support_tickets_created_at_idx on support_tickets (created_at);
+
+alter table support_tickets enable row level security;
+
+-- No policies: all access is via the server-side service role key, which
+-- bypasses RLS. Neither anon nor authenticated clients touch this table
+-- directly.
+
 -- Storage ------------------------------------------------------------------
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
