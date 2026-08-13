@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendEmail } from "@/lib/resend";
 
 const HELP_RECIPIENT = "ally@meaningfulmarketing.com";
 
@@ -19,26 +20,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid email." }, { status: 400 });
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "Email service not configured." }, { status: 500 });
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: "Blues Backroads Events <admin@mail.bluesbackroads.com>",
+  try {
+    await sendEmail({
       to: HELP_RECIPIENT,
       subject: "Admin sign-in help requested",
       text: `An admin couldn't get their sign-in link and needs manual help.\n\nEmail: ${email}`,
-    }),
-  });
-
-  if (!response.ok) {
+    });
+  } catch {
     return NextResponse.json({ error: "Failed to send request." }, { status: 500 });
   }
 
