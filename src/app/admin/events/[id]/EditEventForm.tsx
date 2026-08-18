@@ -9,6 +9,7 @@ import {
   RECURRENCE_FREQUENCIES,
   describeMonthlyDate,
   describeMonthlyWeekday,
+  describeWeekday,
   normalizeUrl,
   type EventRecord,
 } from "@/lib/events";
@@ -262,6 +263,9 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
             </option>
           ))}
         </select>
+        {form.recurrence_frequency === "weekly" && form.start_date && (
+          <span className="hint">Repeats every {describeWeekday(form.start_date)}.</span>
+        )}
       </div>
 
       {form.recurrence_frequency === "monthly" && (
