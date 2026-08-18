@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
-import SiteHeader from "@/components/SiteHeader";
 import {
   PUBLIC_EVENT_COLUMNS,
   buildGoogleCalendarUrl,
@@ -158,7 +157,6 @@ export default async function EventPage({
 
   return (
     <>
-      <SiteHeader />
       <main className="page">
       {/* eslint-disable-next-line react/no-danger */}
       <script
