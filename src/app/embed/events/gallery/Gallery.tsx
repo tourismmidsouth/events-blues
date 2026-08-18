@@ -87,8 +87,13 @@ export default function Gallery({
     // Bring the user to the top so the modal is visible with no scrolling —
     // both within the iframe itself and, via postMessage, the parent page
     // it's embedded in (the listener script documented in the README).
-    window.scrollTo({ top: 0, behavior: "auto" });
-    window.parent.postMessage({ type: "blues-backroads-scroll-top" }, "*");
+    // Deferred a frame so the modal has rendered and the iframe has already
+    // reported its updated height before the parent scrolls, otherwise the
+    // parent scrolls to a position based on the pre-modal (shorter) height.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "auto" });
+      window.parent.postMessage({ type: "blues-backroads-scroll-top" }, "*");
+    });
   }
 
   if (occurrences.length === 0) {
