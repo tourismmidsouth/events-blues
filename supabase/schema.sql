@@ -44,6 +44,7 @@ create table if not exists events (
 alter table events add column if not exists address text;
 alter table events add column if not exists recurrence_frequency text not null default 'none';
 alter table events add column if not exists recurrence_end_date date;
+alter table events add column if not exists recurrence_monthly_type text not null default 'date';
 alter table events add column if not exists venue_phone text;
 alter table events add column if not exists slug text;
 
@@ -93,6 +94,11 @@ alter table events add constraint direction_from_memphis_check check (
 alter table events drop constraint if exists recurrence_frequency_check;
 alter table events add constraint recurrence_frequency_check check (
   recurrence_frequency in ('none', 'daily', 'weekly', 'monthly')
+);
+
+alter table events drop constraint if exists recurrence_monthly_type_check;
+alter table events add constraint recurrence_monthly_type_check check (
+  recurrence_monthly_type in ('date', 'weekday')
 );
 
 create index if not exists events_moderation_status_idx on events (moderation_status);

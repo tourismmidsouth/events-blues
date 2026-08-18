@@ -12,6 +12,12 @@ export type ModerationStatus = (typeof MODERATION_STATUSES)[number];
 export const RECURRENCE_FREQUENCIES = ["none", "daily", "weekly", "monthly"] as const;
 export type RecurrenceFrequency = (typeof RECURRENCE_FREQUENCIES)[number];
 
+// For monthly recurrence: "date" repeats on the same numerical day each
+// month (e.g. the 16th); "weekday" repeats on the same weekday-in-month
+// occurrence as the start date (e.g. the 3rd Saturday, or the last Friday).
+export const RECURRENCE_MONTHLY_TYPES = ["date", "weekday"] as const;
+export type RecurrenceMonthlyType = (typeof RECURRENCE_MONTHLY_TYPES)[number];
+
 export const EVENT_TIMEZONE = "America/Chicago";
 
 export interface EventRecord {
@@ -36,6 +42,7 @@ export interface EventRecord {
   miles_from_downtown_memphis: number | null;
   recurrence_frequency: RecurrenceFrequency | null;
   recurrence_end_date: string | null;
+  recurrence_monthly_type: RecurrenceMonthlyType | null;
   submitter_name: string;
   submitter_email: string;
   image_rights_confirmed: boolean;
@@ -101,6 +108,7 @@ export const PUBLIC_EVENT_COLUMNS = [
   "miles_from_downtown_memphis",
   "recurrence_frequency",
   "recurrence_end_date",
+  "recurrence_monthly_type",
   "image_rights_confirmed",
   "moderation_status",
   "submitted_at",
@@ -176,7 +184,10 @@ export function formatTime(time: string | null): string {
 // start/end date); recurring events are expanded into one occurrence per
 // repetition so each date gets its own gallery card.
 export interface EventOccurrence<
-  T extends Pick<EventRecord, "start_date" | "end_date" | "recurrence_frequency" | "recurrence_end_date"> = EventRecord
+  T extends Pick<
+    EventRecord,
+    "start_date" | "end_date" | "recurrence_frequency" | "recurrence_end_date" | "recurrence_monthly_type"
+  > = EventRecord
 > {
   event: T;
   occurrenceStartDate: string;
@@ -197,20 +208,73 @@ function formatDateOnly(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function stepDate(date: Date, frequency: RecurrenceFrequency): Date {
-  const next = new Date(date);
-  if (frequency === "daily") next.setDate(next.getDate() + 1);
-  else if (frequency === "weekly") next.setDate(next.getDate() + 7);
-  else if (frequency === "monthly") next.setMonth(next.getMonth() + 1);
-  return next;
+// Describes a "nth weekday of the month" recurrence rule (e.g. the 3rd
+// Saturday, or the last Friday), derived once from the series' start date
+// and then reapplied to each subsequent month.
+interface MonthlyWeekdayRule {
+  weekday: number; // 0 (Sunday) - 6 (Saturday)
+  ordinal: number; // 1-5, which occurrence of that weekday in the month
+  isLast: boolean; // true if start_date was that weekday's last occurrence in its month
+}
+
+function monthlyWeekdayRuleFromDate(date: Date): MonthlyWeekdayRule {
+  const weekday = date.getDay();
+  const dayOfMonth = date.getDate();
+  const ordinal = Math.ceil(dayOfMonth / 7);
+  const nextOccurrence = new Date(date);
+  nextOccurrence.setDate(dayOfMonth + 7);
+  const isLast = nextOccurrence.getMonth() !== date.getMonth();
+  return { weekday, ordinal, isLast };
+}
+
+// Resolves a MonthlyWeekdayRule to a concrete date in the given month.
+function nthWeekdayOfMonth(year: number, monthIndex: number, rule: MonthlyWeekdayRule): Date {
+  if (rule.isLast) {
+    const lastOfMonth = new Date(year, monthIndex + 1, 0);
+    const diff = (lastOfMonth.getDay() - rule.weekday + 7) % 7;
+    return new Date(year, monthIndex, lastOfMonth.getDate() - diff);
+  }
+  const firstOfMonth = new Date(year, monthIndex, 1);
+  const diff = (rule.weekday - firstOfMonth.getDay() + 7) % 7;
+  const day = 1 + diff + (rule.ordinal - 1) * 7;
+  return new Date(year, monthIndex, day);
+}
+
+function stepDate(date: Date, frequency: RecurrenceFrequency, monthlyRule: MonthlyWeekdayRule | null): Date {
+  if (frequency === "daily") {
+    const next = new Date(date);
+    next.setDate(next.getDate() + 1);
+    return next;
+  }
+  if (frequency === "weekly") {
+    const next = new Date(date);
+    next.setDate(next.getDate() + 7);
+    return next;
+  }
+  if (frequency === "monthly") {
+    if (monthlyRule) {
+      const totalMonths = date.getFullYear() * 12 + date.getMonth() + 1;
+      return nthWeekdayOfMonth(Math.floor(totalMonths / 12), totalMonths % 12, monthlyRule);
+    }
+    const next = new Date(date);
+    next.setMonth(next.getMonth() + 1);
+    return next;
+  }
+  return date;
 }
 
 // Expands an event into one occurrence per calendar date it actually
 // happens on. For a recurring event, each occurrence keeps the same
 // start/end time and the same span length (in days) as the original
-// start_date/end_date, shifted to that occurrence's date.
+// start_date/end_date, shifted to that occurrence's date. A monthly event
+// with recurrence_monthly_type "weekday" repeats on the same
+// weekday-in-month occurrence (e.g. the 3rd Saturday) rather than the same
+// numerical day.
 export function expandOccurrences<
-  T extends Pick<EventRecord, "start_date" | "end_date" | "recurrence_frequency" | "recurrence_end_date">
+  T extends Pick<
+    EventRecord,
+    "start_date" | "end_date" | "recurrence_frequency" | "recurrence_end_date" | "recurrence_monthly_type"
+  >
 >(event: T): EventOccurrence<T>[] {
   if (!isRecurring(event) || !event.recurrence_end_date) {
     return [
@@ -230,6 +294,11 @@ export function expandOccurrences<
         )
       : 0;
 
+  const monthlyRule =
+    event.recurrence_frequency === "monthly" && event.recurrence_monthly_type === "weekday"
+      ? monthlyWeekdayRuleFromDate(parseDateOnly(event.start_date))
+      : null;
+
   const endBound = parseDateOnly(event.recurrence_end_date);
   const occurrences: EventOccurrence<T>[] = [];
   let cursor = parseDateOnly(event.start_date);
@@ -243,7 +312,7 @@ export function expandOccurrences<
       occurrenceEnd = formatDateOnly(endCursor);
     }
     occurrences.push({ event, occurrenceStartDate: occurrenceStart, occurrenceEndDate: occurrenceEnd });
-    cursor = stepDate(cursor, event.recurrence_frequency as RecurrenceFrequency);
+    cursor = stepDate(cursor, event.recurrence_frequency as RecurrenceFrequency, monthlyRule);
   }
 
   return occurrences;
@@ -254,7 +323,10 @@ export function expandOccurrences<
 // recurrence pattern lands on. Used to validate a /event/[slug]/[date] URL
 // rather than trusting the date segment blindly.
 export function isValidOccurrenceDate(
-  event: Pick<EventRecord, "start_date" | "end_date" | "recurrence_frequency" | "recurrence_end_date">,
+  event: Pick<
+    EventRecord,
+    "start_date" | "end_date" | "recurrence_frequency" | "recurrence_end_date" | "recurrence_monthly_type"
+  >,
   dateStr: string
 ): boolean {
   return expandOccurrences(event).some((occurrence) => occurrence.occurrenceStartDate === dateStr);
@@ -404,19 +476,57 @@ export function buildICSContent(input: CalendarEventInput): string {
     .join("\r\n");
 }
 
-// Human-readable recurrence description, e.g. "Weekly through Dec 20, 2026".
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const ORDINAL_LABELS = ["1st", "2nd", "3rd", "4th", "5th"];
+
+function ordinalWeekdayLabel(rule: MonthlyWeekdayRule): string {
+  const ordinal = rule.isLast ? "last" : ORDINAL_LABELS[rule.ordinal - 1] || `${rule.ordinal}th`;
+  return `${ordinal} ${WEEKDAY_NAMES[rule.weekday]}`;
+}
+
+// e.g. "3rd Saturday" for 2026-09-19 — used to label the "same weekday each
+// month" option in the submission/edit forms against a chosen start date.
+export function describeMonthlyWeekday(startDate: string): string {
+  return ordinalWeekdayLabel(monthlyWeekdayRuleFromDate(parseDateOnly(startDate)));
+}
+
+// e.g. "16th" for 2026-09-16 — used to label the "same date each month"
+// option in the submission/edit forms.
+export function describeMonthlyDate(startDate: string): string {
+  const day = parseDateOnly(startDate).getDate();
+  const suffix =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+        ? "nd"
+        : day % 10 === 3 && day !== 13
+          ? "rd"
+          : "th";
+  return `${day}${suffix}`;
+}
+
+// Human-readable recurrence description, e.g. "Weekly through Dec 20, 2026"
+// or "Monthly (3rd Saturday) through Dec 20, 2026".
 export function formatRecurrence(
-  event: Pick<EventRecord, "recurrence_frequency" | "recurrence_end_date">
+  event: Pick<
+    EventRecord,
+    "start_date" | "recurrence_frequency" | "recurrence_end_date" | "recurrence_monthly_type"
+  >
 ): string | null {
   if (!isRecurring(event)) return null;
 
-  const frequencyLabel: Record<Exclude<RecurrenceFrequency, "none">, string> = {
-    daily: "Daily",
-    weekly: "Weekly",
-    monthly: "Monthly",
-  };
-
-  const label = frequencyLabel[event.recurrence_frequency as Exclude<RecurrenceFrequency, "none">];
+  let label: string;
+  if (event.recurrence_frequency === "monthly" && event.recurrence_monthly_type === "weekday") {
+    const rule = monthlyWeekdayRuleFromDate(parseDateOnly(event.start_date));
+    label = `Monthly (${ordinalWeekdayLabel(rule)})`;
+  } else {
+    const frequencyLabel: Record<Exclude<RecurrenceFrequency, "none">, string> = {
+      daily: "Daily",
+      weekly: "Weekly",
+      monthly: "Monthly",
+    };
+    label = frequencyLabel[event.recurrence_frequency as Exclude<RecurrenceFrequency, "none">];
+  }
 
   if (!event.recurrence_end_date) return label;
 
