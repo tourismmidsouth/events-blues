@@ -122,7 +122,7 @@ export default function Gallery({
             )}
             <div className="modal-body">
               <h2 style={{ marginTop: 0 }}>{selected.event.title}</h2>
-              <p>{selected.event.description}</p>
+              <p style={{ whiteSpace: "pre-wrap" }}>{selected.event.description}</p>
               <p>
                 <strong>Date:</strong>{" "}
                 {formatDateRange(selected.occurrenceStartDate, selected.occurrenceEndDate)}
