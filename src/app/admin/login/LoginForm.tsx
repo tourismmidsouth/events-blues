@@ -12,6 +12,9 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [helpRequested, setHelpRequested] = useState(false);
+  const [helpLoading, setHelpLoading] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
 
   async function handlePasswordSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -26,6 +29,7 @@ export default function LoginForm() {
 
     if (signInError) {
       setError("Invalid email or password.");
+      setFailedAttempts((prev) => prev + 1);
       setLoading(false);
       return;
     }
@@ -61,14 +65,48 @@ export default function LoginForm() {
     setMode(nextMode);
     setError(null);
     setSent(false);
+    setHelpRequested(false);
+  }
+
+  async function handleHelpRequest() {
+    setHelpLoading(true);
+    try {
+      await fetch("/api/admin-login-help", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+    } finally {
+      setHelpLoading(false);
+      setHelpRequested(true);
+    }
   }
 
   if (sent) {
+    if (helpRequested) {
+      return <p>Thanks — we&apos;ll be in touch within 1 business day.</p>;
+    }
+
     return (
-      <p>
-        Check <strong>{email}</strong> for a sign-in link. You can close this
-        tab after clicking it.
-      </p>
+      <div className="form-grid">
+        <p>
+          Check <strong>{email}</strong> for a sign-in link. You can close
+          this tab after clicking it. Be sure to check your junk or spam
+          folder.
+        </p>
+        <p>
+          Still nothing?{" "}
+          <button
+            type="button"
+            className="link"
+            onClick={handleHelpRequest}
+            disabled={helpLoading}
+            style={{ display: "inline" }}
+          >
+            {helpLoading ? "Sending…" : "Click here"}
+          </button>
+        </p>
+      </div>
     );
   }
 
@@ -129,9 +167,11 @@ export default function LoginForm() {
           {loading ? "Signing in…" : "Sign In"}
         </button>
       </div>
-      <button type="button" className="link" onClick={() => switchMode("magic-link")}>
-        Forgot your password? Use a magic link instead
-      </button>
+      {failedAttempts >= 2 && (
+        <button type="button" className="link" onClick={() => switchMode("magic-link")}>
+          Forgot your password? Use a magic link instead
+        </button>
+      )}
     </form>
   );
 }

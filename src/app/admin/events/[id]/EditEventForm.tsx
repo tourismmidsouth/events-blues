@@ -7,6 +7,9 @@ import {
   DIRECTION_OPTIONS,
   MODERATION_STATUSES,
   RECURRENCE_FREQUENCIES,
+  describeMonthlyDate,
+  describeMonthlyWeekday,
+  describeWeekday,
   normalizeUrl,
   type EventRecord,
 } from "@/lib/events";
@@ -37,6 +40,7 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
     miles_from_downtown_memphis: event.miles_from_downtown_memphis?.toString() || "",
     recurrence_frequency: event.recurrence_frequency || "none",
     recurrence_end_date: event.recurrence_end_date || "",
+    recurrence_monthly_type: event.recurrence_monthly_type || "date",
     moderation_status: event.moderation_status,
   });
   const [saving, setSaving] = useState(false);
@@ -120,6 +124,7 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
         : null,
       recurrence_frequency: form.recurrence_frequency,
       recurrence_end_date: form.recurrence_frequency !== "none" ? form.recurrence_end_date || null : null,
+      recurrence_monthly_type: form.recurrence_frequency === "monthly" ? form.recurrence_monthly_type : "date",
       moderation_status: form.moderation_status,
     };
 
@@ -145,6 +150,18 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
 
     if (imagePatch && event.image_path) {
       await supabase.storage.from("event-images").remove([event.image_path]);
+    }
+
+    if (form.moderation_status === "published" && event.moderation_status !== "published") {
+      fetch("/api/events/notify-approved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: event.id }),
+      })
+        .then((res) => {
+          if (!res.ok) console.error("notify-approved request failed:", res.status);
+        })
+        .catch((err) => console.error("notify-approved request failed:", err));
     }
 
     setNewImageFile(null);
@@ -246,7 +263,30 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
             </option>
           ))}
         </select>
+        {form.recurrence_frequency === "weekly" && form.start_date && (
+          <span className="hint">Repeats every {describeWeekday(form.start_date)}.</span>
+        )}
       </div>
+
+      {form.recurrence_frequency === "monthly" && (
+        <div className="field">
+          <label htmlFor="recurrence_monthly_type">Monthly Repeat Pattern</label>
+          <select
+            id="recurrence_monthly_type"
+            value={form.recurrence_monthly_type}
+            onChange={(e) =>
+              update("recurrence_monthly_type", e.target.value as typeof form.recurrence_monthly_type)
+            }
+          >
+            <option value="date">
+              Same date each month{form.start_date ? ` (the ${describeMonthlyDate(form.start_date)})` : ""}
+            </option>
+            <option value="weekday">
+              Same weekday each month{form.start_date ? ` (${describeMonthlyWeekday(form.start_date)})` : ""}
+            </option>
+          </select>
+        </div>
+      )}
 
       {form.recurrence_frequency !== "none" && (
         <div className="field">

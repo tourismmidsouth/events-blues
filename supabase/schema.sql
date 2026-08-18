@@ -44,6 +44,7 @@ create table if not exists events (
 alter table events add column if not exists address text;
 alter table events add column if not exists recurrence_frequency text not null default 'none';
 alter table events add column if not exists recurrence_end_date date;
+alter table events add column if not exists recurrence_monthly_type text not null default 'date';
 alter table events add column if not exists venue_phone text;
 alter table events add column if not exists slug text;
 
@@ -93,6 +94,11 @@ alter table events add constraint direction_from_memphis_check check (
 alter table events drop constraint if exists recurrence_frequency_check;
 alter table events add constraint recurrence_frequency_check check (
   recurrence_frequency in ('none', 'daily', 'weekly', 'monthly')
+);
+
+alter table events drop constraint if exists recurrence_monthly_type_check;
+alter table events add constraint recurrence_monthly_type_check check (
+  recurrence_monthly_type in ('date', 'weekday')
 );
 
 create index if not exists events_moderation_status_idx on events (moderation_status);
@@ -174,6 +180,32 @@ create policy "Admins can delete events"
 
 -- No insert policy for anon/authenticated: submissions are written by the
 -- server-side API route using the service role key, which bypasses RLS.
+
+-- Support tickets -----------------------------------------------------------
+-- Logged whenever a user hits a dead end (event submission error, admin
+-- magic-link trouble) and asks for help. Written server-side with the
+-- service role key; read back by the weekly report cron.
+
+create table if not exists support_tickets (
+  id uuid primary key default gen_random_uuid(),
+  ticket_type text not null,
+  email text not null,
+  details text,
+  created_at timestamptz default now()
+);
+
+alter table support_tickets drop constraint if exists support_tickets_type_check;
+alter table support_tickets add constraint support_tickets_type_check check (
+  ticket_type in ('event_submission_error', 'admin_login_help')
+);
+
+create index if not exists support_tickets_created_at_idx on support_tickets (created_at);
+
+alter table support_tickets enable row level security;
+
+-- No policies: all access is via the server-side service role key, which
+-- bypasses RLS. Neither anon nor authenticated clients touch this table
+-- directly.
 
 -- Storage ------------------------------------------------------------------
 

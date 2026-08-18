@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { Filter } from "bad-words";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES, normalizeUrl, slugify } from "@/lib/events";
+import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES, RECURRENCE_MONTHLY_TYPES, normalizeUrl, slugify } from "@/lib/events";
+import { sendEmail } from "@/lib/resend";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const profanityFilter = new Filter();
@@ -125,6 +126,11 @@ export async function POST(request: Request) {
     }
   }
 
+  const recurrenceMonthlyType = getString("recurrence_monthly_type") || "date";
+  if (!RECURRENCE_MONTHLY_TYPES.includes(recurrenceMonthlyType as (typeof RECURRENCE_MONTHLY_TYPES)[number])) {
+    errors.push("Invalid monthly recurrence type.");
+  }
+
   const imageFile = formData.get("image");
   if (!(imageFile instanceof File) || imageFile.size === 0) {
     errors.push("Event image is required.");
@@ -220,6 +226,7 @@ export async function POST(request: Request) {
     miles_from_downtown_memphis: milesRaw ? Number(milesRaw) : null,
     recurrence_frequency: recurrenceFrequency,
     recurrence_end_date: recurrenceFrequency !== "none" ? recurrenceEndDate : null,
+    recurrence_monthly_type: recurrenceFrequency === "monthly" ? recurrenceMonthlyType : "date",
     submitter_name: getString("submitter_name"),
     submitter_email: submitterEmail,
     image_rights_confirmed: imageRightsConfirmed,
@@ -232,6 +239,18 @@ export async function POST(request: Request) {
       { error: "Failed to save event. Please try again." },
       { status: 500 }
     );
+  }
+
+  try {
+    await sendEmail({
+      to: "tourism@midsouthdd.org",
+      subject: "New event submission awaiting review",
+      text: `A new event was just submitted: "${getString("title")}"
+
+Log in to review it here: https://events.bluesbackroads.com/admin/login`,
+    });
+  } catch (err) {
+    console.error("Failed to send new-submission alert email:", err);
   }
 
   return NextResponse.json({ success: true });

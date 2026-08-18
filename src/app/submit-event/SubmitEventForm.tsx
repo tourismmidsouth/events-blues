@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
-import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES } from "@/lib/events";
+import {
+  DIRECTION_OPTIONS,
+  RECURRENCE_FREQUENCIES,
+  RECURRENCE_MONTHLY_TYPES,
+  describeMonthlyDate,
+  describeMonthlyWeekday,
+  describeWeekday,
+} from "@/lib/events";
 
 interface Grecaptcha {
   render: (container: HTMLElement, params: Record<string, unknown>) => number;
@@ -28,6 +35,7 @@ type FormState = {
   end_time: string;
   recurrence_frequency: (typeof RECURRENCE_FREQUENCIES)[number];
   recurrence_end_date: string;
+  recurrence_monthly_type: (typeof RECURRENCE_MONTHLY_TYPES)[number];
   venue_name: string;
   address: string;
   city: string;
@@ -50,6 +58,7 @@ const EMPTY_FORM: FormState = {
   end_time: "",
   recurrence_frequency: "none",
   recurrence_end_date: "",
+  recurrence_monthly_type: "date",
   venue_name: "",
   address: "",
   city: "",
@@ -73,6 +82,10 @@ export default function SubmitEventForm() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [showTicketOption, setShowTicketOption] = useState(false);
+  const [ticketEmail, setTicketEmail] = useState("");
+  const [ticketSubmitting, setTicketSubmitting] = useState(false);
+  const [ticketSent, setTicketSent] = useState(false);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -97,9 +110,25 @@ export default function SubmitEventForm() {
     setImageFile(e.target.files?.[0] || null);
   }
 
+  async function handleTicketSubmit() {
+    setTicketSubmitting(true);
+    try {
+      await fetch("/api/support-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: ticketEmail, details: error }),
+      });
+    } finally {
+      setTicketSubmitting(false);
+      setTicketSent(true);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setShowTicketOption(false);
+    setTicketSent(false);
 
     if (!imageFile) {
       setError("Event image is required.");
@@ -131,6 +160,7 @@ export default function SubmitEventForm() {
 
       if (!response.ok) {
         setError(result.error || "Something went wrong. Please try again.");
+        setShowTicketOption(true);
         setSubmitting(false);
         if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
           window.grecaptcha.reset(recaptchaWidgetId.current ?? undefined);
@@ -141,6 +171,7 @@ export default function SubmitEventForm() {
       setSubmitted(true);
     } catch {
       setError("Something went wrong. Please try again.");
+      setShowTicketOption(true);
       setSubmitting(false);
     }
   }
@@ -251,7 +282,30 @@ export default function SubmitEventForm() {
             </option>
           ))}
         </select>
+        {form.recurrence_frequency === "weekly" && form.start_date && (
+          <span className="hint">Repeats every {describeWeekday(form.start_date)}.</span>
+        )}
       </div>
+
+      {form.recurrence_frequency === "monthly" && (
+        <div className="field">
+          <label htmlFor="recurrence_monthly_type">Monthly Repeat Pattern</label>
+          <select
+            id="recurrence_monthly_type"
+            value={form.recurrence_monthly_type}
+            onChange={(e) =>
+              update("recurrence_monthly_type", e.target.value as FormState["recurrence_monthly_type"])
+            }
+          >
+            <option value="date">
+              Same date each month{form.start_date ? ` (the ${describeMonthlyDate(form.start_date)})` : ""}
+            </option>
+            <option value="weekday">
+              Same weekday each month{form.start_date ? ` (${describeMonthlyWeekday(form.start_date)})` : ""}
+            </option>
+          </select>
+        </div>
+      )}
 
       {form.recurrence_frequency !== "none" && (
         <div className="field">
@@ -431,6 +485,33 @@ export default function SubmitEventForm() {
       )}
 
       {error && <p className="error-text">{error}</p>}
+
+      {showTicketOption &&
+        (ticketSent ? (
+          <p>Thanks — we&apos;ll be in touch within 1 business day.</p>
+        ) : (
+          <div className="field">
+            <label htmlFor="ticket_email">
+              Still having trouble? Enter your email and we&apos;ll help
+              resolve this within 1 business day.
+            </label>
+            <input
+              id="ticket_email"
+              type="email"
+              value={ticketEmail}
+              onChange={(e) => setTicketEmail(e.target.value)}
+            />
+            <div>
+              <button
+                type="button"
+                onClick={handleTicketSubmit}
+                disabled={ticketSubmitting || !ticketEmail}
+              >
+                {ticketSubmitting ? "Sending…" : "Send Support Request"}
+              </button>
+            </div>
+          </div>
+        ))}
 
       <div>
         <button type="submit" className="primary" disabled={submitting}>

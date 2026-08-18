@@ -46,33 +46,61 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
     setBusyId(null);
   }
 
-  async function deleteEvent(event: EventRecord) {
-    if (!confirm(`Delete "${event.title}"? This cannot be undone.`)) return;
-    setBusyId(event.id);
-    const supabase = createClient();
+  function exportCsv() {
+    const columns: Array<{ header: string; value: (e: EventRecord) => string }> = [
+      { header: "Title", value: (e) => e.title },
+      { header: "Status", value: (e) => e.moderation_status },
+      { header: "Start Date", value: (e) => e.start_date },
+      { header: "End Date", value: (e) => e.end_date || "" },
+      { header: "Venue", value: (e) => e.venue_name || "" },
+      { header: "City", value: (e) => e.city || "" },
+      { header: "State", value: (e) => e.state || "" },
+      { header: "Submitter Name", value: (e) => e.submitter_name },
+      { header: "Submitter Email", value: (e) => e.submitter_email },
+      { header: "Event URL", value: (e) => e.event_url || "" },
+      { header: "Submitted At", value: (e) => e.submitted_at || "" },
+      { header: "Published At", value: (e) => e.published_at || "" },
+    ];
 
-    if (event.image_path) {
-      await supabase.storage.from("event-images").remove([event.image_path]);
+    function csvEscape(value: string) {
+      if (/[",\n]/.test(value)) {
+        return `"${value.replace(/"/g, '""')}"`;
+      }
+      return value;
     }
-    const { error } = await supabase.from("events").delete().eq("id", event.id);
-    if (!error) {
-      setEvents((prev) => prev.filter((e) => e.id !== event.id));
-    }
-    setBusyId(null);
+
+    const rows = [
+      columns.map((c) => csvEscape(c.header)).join(","),
+      ...events.map((event) => columns.map((c) => csvEscape(c.value(event))).join(",")),
+    ];
+    const csv = rows.join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `event-submissions-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
     <div className="card">
-      <div className="filters">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            className={filter === f.value ? "active" : ""}
-            onClick={() => setFilter(f.value)}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="filters" style={{ justifyContent: "space-between", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              className={filter === f.value ? "active" : ""}
+              onClick={() => setFilter(f.value)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <button className="secondary" onClick={exportCsv}>
+          Export All to CSV
+        </button>
       </div>
 
       {filtered.length === 0 ? (
@@ -152,13 +180,6 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
                           Archive
                         </button>
                       )}
-                      <button
-                        className="danger"
-                        disabled={busyId === event.id}
-                        onClick={() => deleteEvent(event)}
-                      >
-                        Delete
-                      </button>
                     </div>
                   </td>
                 </tr>
