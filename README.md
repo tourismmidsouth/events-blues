@@ -154,7 +154,9 @@ Add a **Code Block** in Squarespace 7.1 with:
     if (event.data.type === "blues-backroads-gallery-height") {
       iframe.style.height = event.data.height + "px";
     } else if (event.data.type === "blues-backroads-scroll-top") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      var rect = iframe.getBoundingClientRect();
+      var top = rect.top + window.pageYOffset;
+      window.scrollTo({ top: top, behavior: "smooth" });
     }
   });
 </script>
