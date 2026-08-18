@@ -8,6 +8,7 @@ import {
   RECURRENCE_MONTHLY_TYPES,
   describeMonthlyDate,
   describeMonthlyWeekday,
+  describeWeekday,
 } from "@/lib/events";
 
 interface Grecaptcha {
@@ -281,6 +282,9 @@ export default function SubmitEventForm() {
             </option>
           ))}
         </select>
+        {form.recurrence_frequency === "weekly" && form.start_date && (
+          <span className="hint">Repeats every {describeWeekday(form.start_date)}.</span>
+        )}
       </div>
 
       {form.recurrence_frequency === "monthly" && (

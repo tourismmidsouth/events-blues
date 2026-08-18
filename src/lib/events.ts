@@ -490,6 +490,12 @@ export function describeMonthlyWeekday(startDate: string): string {
   return ordinalWeekdayLabel(monthlyWeekdayRuleFromDate(parseDateOnly(startDate)));
 }
 
+// e.g. "Saturday" for 2026-09-19 — used to show which day a weekly
+// recurrence falls on in the submission/edit forms.
+export function describeWeekday(startDate: string): string {
+  return WEEKDAY_NAMES[parseDateOnly(startDate).getDay()];
+}
+
 // e.g. "16th" for 2026-09-16 — used to label the "same date each month"
 // option in the submission/edit forms.
 export function describeMonthlyDate(startDate: string): string {

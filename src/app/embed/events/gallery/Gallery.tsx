@@ -110,89 +110,6 @@ export default function Gallery({
 
   return (
     <div>
-      {showToggle && (
-        <div className="filters" role="group" aria-label="Gallery view">
-          <button className={view === "grid" ? "active" : ""} onClick={() => setView("grid")}>
-            Grid
-          </button>
-          <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
-            List
-          </button>
-        </div>
-      )}
-
-      {view === "grid" ? (
-        <div className="gallery-grid">
-          {occurrences.map((occurrence, index) => {
-            const key = `${occurrence.event.id}-${occurrence.occurrenceStartDate}-${index}`;
-            const cardBody = (
-              <>
-                <div className="gallery-date-badge">{formatDateBadge(occurrence.occurrenceStartDate)}</div>
-                <CardImage occurrence={occurrence} />
-                <div className="gallery-card-body">
-                  <h3>{occurrence.event.title}</h3>
-                  <div className="gallery-meta">
-                    {formatDateRange(occurrence.occurrenceStartDate, occurrence.occurrenceEndDate)}
-                  </div>
-                  <div className="gallery-meta">
-                    {[occurrence.event.venue_name, occurrence.event.city].filter(Boolean).join(", ")}
-                  </div>
-                </div>
-              </>
-            );
-            return cardLinkUrl ? (
-              <a key={key} className="gallery-card" href={cardLinkUrl} target="_blank" rel="noopener noreferrer">
-                {cardBody}
-              </a>
-            ) : (
-              <button key={key} className="gallery-card" onClick={() => openOccurrence(occurrence)}>
-                {cardBody}
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="gallery-list">
-          {occurrences.map((occurrence, index) => {
-            const key = `${occurrence.event.id}-${occurrence.occurrenceStartDate}-${index}`;
-            const itemBody = (
-              <>
-                {occurrence.event.image_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={occurrence.event.image_url} alt={occurrence.event.title} />
-                ) : (
-                  <div className="thumb" />
-                )}
-                <div className="gallery-list-item-body">
-                  <h3>{occurrence.event.title}</h3>
-                  <div className="gallery-meta">
-                    {formatDateRange(occurrence.occurrenceStartDate, occurrence.occurrenceEndDate)}
-                  </div>
-                  <div className="gallery-meta">
-                    {[occurrence.event.venue_name, occurrence.event.city].filter(Boolean).join(", ")}
-                  </div>
-                </div>
-              </>
-            );
-            return cardLinkUrl ? (
-              <a
-                key={key}
-                className="gallery-list-item"
-                href={cardLinkUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {itemBody}
-              </a>
-            ) : (
-              <button key={key} className="gallery-list-item" onClick={() => openOccurrence(occurrence)}>
-                {itemBody}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
       {selected && (
         <div className="modal-backdrop" onClick={() => setSelected(null)}>
           <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
@@ -328,6 +245,89 @@ export default function Gallery({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {showToggle && (
+        <div className="filters" role="group" aria-label="Gallery view">
+          <button className={view === "grid" ? "active" : ""} onClick={() => setView("grid")}>
+            Grid
+          </button>
+          <button className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
+            List
+          </button>
+        </div>
+      )}
+
+      {view === "grid" ? (
+        <div className="gallery-grid">
+          {occurrences.map((occurrence, index) => {
+            const key = `${occurrence.event.id}-${occurrence.occurrenceStartDate}-${index}`;
+            const cardBody = (
+              <>
+                <div className="gallery-date-badge">{formatDateBadge(occurrence.occurrenceStartDate)}</div>
+                <CardImage occurrence={occurrence} />
+                <div className="gallery-card-body">
+                  <h3>{occurrence.event.title}</h3>
+                  <div className="gallery-meta">
+                    {formatDateRange(occurrence.occurrenceStartDate, occurrence.occurrenceEndDate)}
+                  </div>
+                  <div className="gallery-meta">
+                    {[occurrence.event.venue_name, occurrence.event.city].filter(Boolean).join(", ")}
+                  </div>
+                </div>
+              </>
+            );
+            return cardLinkUrl ? (
+              <a key={key} className="gallery-card" href={cardLinkUrl} target="_blank" rel="noopener noreferrer">
+                {cardBody}
+              </a>
+            ) : (
+              <button key={key} className="gallery-card" onClick={() => openOccurrence(occurrence)}>
+                {cardBody}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="gallery-list">
+          {occurrences.map((occurrence, index) => {
+            const key = `${occurrence.event.id}-${occurrence.occurrenceStartDate}-${index}`;
+            const itemBody = (
+              <>
+                {occurrence.event.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={occurrence.event.image_url} alt={occurrence.event.title} />
+                ) : (
+                  <div className="thumb" />
+                )}
+                <div className="gallery-list-item-body">
+                  <h3>{occurrence.event.title}</h3>
+                  <div className="gallery-meta">
+                    {formatDateRange(occurrence.occurrenceStartDate, occurrence.occurrenceEndDate)}
+                  </div>
+                  <div className="gallery-meta">
+                    {[occurrence.event.venue_name, occurrence.event.city].filter(Boolean).join(", ")}
+                  </div>
+                </div>
+              </>
+            );
+            return cardLinkUrl ? (
+              <a
+                key={key}
+                className="gallery-list-item"
+                href={cardLinkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {itemBody}
+              </a>
+            ) : (
+              <button key={key} className="gallery-list-item" onClick={() => openOccurrence(occurrence)}>
+                {itemBody}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
