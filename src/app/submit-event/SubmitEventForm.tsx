@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import Script from "next/script";
-import { DIRECTION_OPTIONS, RECURRENCE_FREQUENCIES } from "@/lib/events";
+import {
+  DIRECTION_OPTIONS,
+  RECURRENCE_FREQUENCIES,
+  RECURRENCE_MONTHLY_TYPES,
+  describeMonthlyDate,
+  describeMonthlyWeekday,
+} from "@/lib/events";
 
 interface Grecaptcha {
   render: (container: HTMLElement, params: Record<string, unknown>) => number;
@@ -28,6 +34,7 @@ type FormState = {
   end_time: string;
   recurrence_frequency: (typeof RECURRENCE_FREQUENCIES)[number];
   recurrence_end_date: string;
+  recurrence_monthly_type: (typeof RECURRENCE_MONTHLY_TYPES)[number];
   venue_name: string;
   address: string;
   city: string;
@@ -50,6 +57,7 @@ const EMPTY_FORM: FormState = {
   end_time: "",
   recurrence_frequency: "none",
   recurrence_end_date: "",
+  recurrence_monthly_type: "date",
   venue_name: "",
   address: "",
   city: "",
@@ -274,6 +282,26 @@ export default function SubmitEventForm() {
           ))}
         </select>
       </div>
+
+      {form.recurrence_frequency === "monthly" && (
+        <div className="field">
+          <label htmlFor="recurrence_monthly_type">Monthly Repeat Pattern</label>
+          <select
+            id="recurrence_monthly_type"
+            value={form.recurrence_monthly_type}
+            onChange={(e) =>
+              update("recurrence_monthly_type", e.target.value as FormState["recurrence_monthly_type"])
+            }
+          >
+            <option value="date">
+              Same date each month{form.start_date ? ` (the ${describeMonthlyDate(form.start_date)})` : ""}
+            </option>
+            <option value="weekday">
+              Same weekday each month{form.start_date ? ` (${describeMonthlyWeekday(form.start_date)})` : ""}
+            </option>
+          </select>
+        </div>
+      )}
 
       {form.recurrence_frequency !== "none" && (
         <div className="field">
