@@ -11,22 +11,25 @@ import {
   type ModerationStatus,
 } from "@/lib/events";
 
-const FILTERS: Array<{ label: string; value: ModerationStatus | "all" }> = [
+const FILTERS: Array<{ label: string; value: ModerationStatus | "all" | "past" }> = [
   { label: "All", value: "all" },
   { label: "Submitted", value: "submitted" },
   { label: "Published", value: "published" },
   { label: "Rejected", value: "rejected" },
   { label: "Archived", value: "archived" },
+  { label: "Past Events", value: "past" },
 ];
 
 export default function EventsTable({ initialEvents }: { initialEvents: EventRecord[] }) {
   const [events, setEvents] = useState(initialEvents);
-  const [filter, setFilter] = useState<ModerationStatus | "all">("all");
+  const [filter, setFilter] = useState<ModerationStatus | "all" | "past">("all");
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return events;
-    return events.filter((e) => e.moderation_status === filter);
+    if (filter === "past") return events.filter((e) => isPastEvent(e));
+    const notPast = events.filter((e) => !isPastEvent(e));
+    if (filter === "all") return notPast;
+    return notPast.filter((e) => e.moderation_status === filter);
   }, [events, filter]);
 
   async function updateStatus(event: EventRecord, status: ModerationStatus) {
@@ -133,11 +136,6 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
                   </td>
                   <td>
                     <Link href={`/admin/events/${event.id}`}>{event.title}</Link>
-                    {isPastEvent(event) && (
-                      <div className="hint" style={{ marginTop: 2 }}>
-                        Past event
-                      </div>
-                    )}
                   </td>
                   <td>{formatDateRange(event.start_date, event.end_date)}</td>
                   <td>{event.venue_name}</td>

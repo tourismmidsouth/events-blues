@@ -168,21 +168,6 @@ export default async function EventPage({
         &laquo; All Events
       </a>
 
-      <a
-        href="https://bluesbackroads.com/events"
-        className="bb-explore-hero"
-        style={{
-          backgroundImage:
-            "url(https://images.squarespace-cdn.com/content/v1/6a4e488ced46b83c3154160c/520e1790-118d-4d15-950f-de7c6e826176/people-shopping-booths.png)",
-        }}
-        aria-label="View all upcoming events"
-      >
-        <div className="bb-explore-title" aria-label="Upcoming Events">
-          <div className="bb-explore-top">UPCOMING</div>
-          <div className="bb-explore-script">Events</div>
-        </div>
-      </a>
-
       {event.image_url && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
