@@ -5,11 +5,22 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import {
   MODERATION_STATUSES,
+  expandOccurrences,
   formatDateRange,
   isPastEvent,
+  isPastOccurrence,
   type EventRecord,
   type ModerationStatus,
 } from "@/lib/events";
+
+// One past occurrence of an event — for a recurring series still in
+// progress, this lets each already-happened date show up individually
+// instead of the whole (still-active) series being hidden.
+type PastOccurrenceRow = {
+  event: EventRecord;
+  occurrenceStartDate: string;
+  occurrenceEndDate: string | null;
+};
 
 const FILTERS: Array<{ label: string; value: ModerationStatus | "all" | "past" }> = [
   { label: "All", value: "all" },
@@ -26,10 +37,23 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
-    if (filter === "past") return events.filter((e) => isPastEvent(e));
     const notPast = events.filter((e) => !isPastEvent(e));
     if (filter === "all") return notPast;
     return notPast.filter((e) => e.moderation_status === filter);
+  }, [events, filter]);
+
+  const pastOccurrences = useMemo<PastOccurrenceRow[]>(() => {
+    if (filter !== "past") return [];
+    const rows = events.flatMap((event) =>
+      expandOccurrences(event)
+        .filter((occurrence) => isPastOccurrence(occurrence))
+        .map((occurrence) => ({
+          event,
+          occurrenceStartDate: occurrence.occurrenceStartDate,
+          occurrenceEndDate: occurrence.occurrenceEndDate,
+        }))
+    );
+    return rows.sort((a, b) => b.occurrenceStartDate.localeCompare(a.occurrenceStartDate));
   }, [events, filter]);
 
   async function updateStatus(event: EventRecord, status: ModerationStatus) {
@@ -106,7 +130,70 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
         </button>
       </div>
 
-      {filtered.length === 0 ? (
+      {filter === "past" ? (
+        pastOccurrences.length === 0 ? (
+          <p className="empty-state">No past events.</p>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Image</th>
+                  <th>Title</th>
+                  <th>Date</th>
+                  <th>Venue</th>
+                  <th>City</th>
+                  <th>Submitter</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pastOccurrences.map(({ event, occurrenceStartDate, occurrenceEndDate }) => (
+                  <tr key={`${event.id}-${occurrenceStartDate}`}>
+                    <td>
+                      {event.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={event.image_url} alt="" className="thumb" />
+                      ) : (
+                        <div className="thumb" />
+                      )}
+                    </td>
+                    <td>
+                      <Link href={`/admin/events/${event.id}`}>{event.title}</Link>
+                    </td>
+                    <td>{formatDateRange(occurrenceStartDate, occurrenceEndDate)}</td>
+                    <td>{event.venue_name}</td>
+                    <td>{event.city}</td>
+                    <td>
+                      <div>{event.submitter_name}</div>
+                      <div className="hint">{event.submitter_email}</div>
+                    </td>
+                    <td>
+                      <span className={`badge badge-${event.moderation_status}`}>
+                        {event.moderation_status}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                        {event.moderation_status !== "archived" && (
+                          <button
+                            className="secondary"
+                            disabled={busyId === event.id}
+                            onClick={() => updateStatus(event, "archived")}
+                          >
+                            Archive
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : filtered.length === 0 ? (
         <p className="empty-state">No events in this view.</p>
       ) : (
         <div style={{ overflowX: "auto" }}>
