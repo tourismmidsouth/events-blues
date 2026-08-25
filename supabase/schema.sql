@@ -47,6 +47,9 @@ alter table events add column if not exists recurrence_end_date date;
 alter table events add column if not exists recurrence_monthly_type text not null default 'date';
 alter table events add column if not exists venue_phone text;
 alter table events add column if not exists slug text;
+-- Tracks whether the "your event is live" email has already been sent to
+-- the submitter, so it can only ever go out once per event.
+alter table events add column if not exists approval_email_sent_at timestamptz;
 
 -- Backfill slugs for any existing rows that don't have one yet (new rows
 -- get theirs computed by the app at submission time, with the same

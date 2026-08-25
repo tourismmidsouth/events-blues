@@ -33,6 +33,7 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
     setBusyId(event.id);
     const supabase = createClient();
 
+    const wasPublished = event.moderation_status === "published";
     const patch: Partial<EventRecord> = { moderation_status: status };
     if (status === "published") patch.published_at = new Date().toISOString();
     if (status === "archived") patch.archived_at = new Date().toISOString();
@@ -42,6 +43,40 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
       setEvents((prev) =>
         prev.map((e) => (e.id === event.id ? { ...e, ...patch } : e))
       );
+    }
+    setBusyId(null);
+
+    if (!error && status === "published" && !wasPublished && !event.approval_email_sent_at) {
+      const shouldNotify = window.confirm(
+        'This event is now live. Send "your event is live" email to the organizer now?\n\nOK = send it now\nCancel = not yet, I want to make changes first'
+      );
+      if (shouldNotify) {
+        await notifyOrganizer(event.id);
+      }
+    }
+  }
+
+  async function notifyOrganizer(eventId: string) {
+    setBusyId(eventId);
+    try {
+      const res = await fetch("/api/events/notify-approved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success || data.alreadySent) {
+          const sentAt = new Date().toISOString();
+          setEvents((prev) =>
+            prev.map((e) => (e.id === eventId ? { ...e, approval_email_sent_at: sentAt } : e))
+          );
+        }
+      } else {
+        console.error("notify-approved request failed:", res.status);
+      }
+    } catch (err) {
+      console.error("notify-approved request failed:", err);
     }
     setBusyId(null);
   }
@@ -180,6 +215,20 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
                           Archive
                         </button>
                       )}
+                      {event.moderation_status === "published" &&
+                        (event.approval_email_sent_at ? (
+                          <span className="hint" title={new Date(event.approval_email_sent_at).toLocaleString()}>
+                            Organizer emailed
+                          </span>
+                        ) : (
+                          <button
+                            className="secondary"
+                            disabled={busyId === event.id}
+                            onClick={() => notifyOrganizer(event.id)}
+                          >
+                            Notify Organizer
+                          </button>
+                        ))}
                     </div>
                   </td>
                 </tr>

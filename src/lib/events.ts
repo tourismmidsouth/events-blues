@@ -51,6 +51,7 @@ export interface EventRecord {
   published_at: string | null;
   archived_at: string | null;
   updated_at: string | null;
+  approval_email_sent_at: string | null;
 }
 
 // Turns a title into a URL-safe slug: lowercase, alphanumerics and hyphens

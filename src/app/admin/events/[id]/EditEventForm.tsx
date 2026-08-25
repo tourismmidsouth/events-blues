@@ -46,6 +46,30 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [approvalEmailSentAt, setApprovalEmailSentAt] = useState(event.approval_email_sent_at);
+  const [notifying, setNotifying] = useState(false);
+
+  async function notifyOrganizer() {
+    setNotifying(true);
+    try {
+      const res = await fetch("/api/events/notify-approved", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: event.id }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success || data.alreadySent) {
+          setApprovalEmailSentAt(new Date().toISOString());
+        }
+      } else {
+        console.error("notify-approved request failed:", res.status);
+      }
+    } catch (err) {
+      console.error("notify-approved request failed:", err);
+    }
+    setNotifying(false);
+  }
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -152,21 +176,23 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
       await supabase.storage.from("event-images").remove([event.image_path]);
     }
 
-    if (form.moderation_status === "published" && event.moderation_status !== "published") {
-      fetch("/api/events/notify-approved", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: event.id }),
-      })
-        .then((res) => {
-          if (!res.ok) console.error("notify-approved request failed:", res.status);
-        })
-        .catch((err) => console.error("notify-approved request failed:", err));
+    setNewImageFile(null);
+    setSaving(false);
+
+    if (
+      form.moderation_status === "published" &&
+      event.moderation_status !== "published" &&
+      !approvalEmailSentAt
+    ) {
+      const shouldNotify = window.confirm(
+        'This event is now live. Send "your event is live" email to the organizer now?\n\nOK = send it now\nCancel = not yet, I want to make changes first'
+      );
+      if (shouldNotify) {
+        await notifyOrganizer();
+      }
     }
 
-    setNewImageFile(null);
     setSavedMessage("Changes saved.");
-    setSaving(false);
     router.refresh();
   }
 
@@ -402,6 +428,27 @@ export default function EditEventForm({ event }: { event: EventRecord }) {
         <p className="hint" style={{ margin: "0.4rem 0 0" }}>
           {event.submitter_name} — {event.submitter_email}
         </p>
+        <div style={{ marginTop: "0.6rem" }}>
+          {approvalEmailSentAt ? (
+            <span className="hint">
+              &quot;Your event is live&quot; email already sent to the organizer on{" "}
+              {new Date(approvalEmailSentAt).toLocaleString()}. It can only be sent once.
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="secondary"
+              disabled={notifying || form.moderation_status !== "published"}
+              onClick={notifyOrganizer}
+            >
+              {notifying
+                ? "Sending…"
+                : form.moderation_status === "published"
+                  ? "Send “your event is live” email"
+                  : "Publish the event to enable this"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && <p className="error-text">{error}</p>}
