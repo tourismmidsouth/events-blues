@@ -300,20 +300,6 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
                           Archive
                         </button>
                       )}
-                      {event.moderation_status === "published" &&
-                        (event.approval_email_sent_at ? (
-                          <span className="hint" title={new Date(event.approval_email_sent_at).toLocaleString()}>
-                            Organizer emailed
-                          </span>
-                        ) : (
-                          <button
-                            className="secondary"
-                            disabled={busyId === event.id}
-                            onClick={() => notifyOrganizer(event.id)}
-                          >
-                            Notify Organizer
-                          </button>
-                        ))}
                     </div>
                   </td>
                 </tr>
