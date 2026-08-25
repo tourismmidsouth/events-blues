@@ -50,6 +50,19 @@ alter table events add column if not exists slug text;
 -- Tracks whether the "your event is live" email has already been sent to
 -- the submitter, so it can only ever go out once per event.
 alter table events add column if not exists approval_email_sent_at timestamptz;
+-- Tracks whether the "new submission awaiting review" alert to admins was
+-- accepted by Resend. Null means it wasn't (e.g. Resend was unreachable,
+-- misconfigured, or rejected the request) - the admin dashboard flags any
+-- such event so a delivery failure never leaves a submission unreviewed.
+alter table events add column if not exists submission_alert_sent_at timestamptz;
+-- Backfill: rows submitted before this column existed (2026-08-25) predate
+-- this tracking, so treat them as "alert sent" (their submitted_at) rather
+-- than flagging every historical event as a missed alert. Scoped to that
+-- cutoff (not "still null") so re-running this file later never erases a
+-- real, still-unresolved missed-alert flag on a newer event.
+update events
+set submission_alert_sent_at = submitted_at
+where submission_alert_sent_at is null and submitted_at < '2026-08-25';
 
 -- Backfill slugs for any existing rows that don't have one yet (new rows
 -- get theirs computed by the app at submission time, with the same

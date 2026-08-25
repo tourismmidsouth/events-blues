@@ -258,6 +258,15 @@ export default function EventsTable({ initialEvents }: { initialEvents: EventRec
                   </td>
                   <td>
                     <Link href={`/admin/events/${event.id}`}>{event.title}</Link>
+                    {!event.submission_alert_sent_at && (
+                      <div
+                        className="hint"
+                        style={{ color: "var(--color-error, #b3261e)", marginTop: 2 }}
+                        title="The 'new submission' alert email failed to send when this event came in — check the Resend logs."
+                      >
+                        ⚠ No submission alert sent
+                      </div>
+                    )}
                   </td>
                   <td>{formatDateRange(event.start_date, event.end_date)}</td>
                   <td>{event.venue_name}</td>

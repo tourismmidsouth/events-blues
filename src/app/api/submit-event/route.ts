@@ -8,6 +8,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const profanityFilter = new Filter();
 
+// tourism@midsouthdd.org's mailbox has bounced this alert repeatedly (see
+// Resend logs), so a backup recipient always gets it too — a submission
+// with nobody notified to review it is worse than a duplicate email.
+const NEW_SUBMISSION_ALERT_RECIPIENTS = ["tourism@midsouthdd.org", "ally@meaningfulmarketinghouse.com"];
+
 // Verifies a Google reCAPTCHA v2 token server-side. Returns true (allow the
 // submission through) if RECAPTCHA_SECRET_KEY isn't configured, so the app
 // works with or without CAPTCHA set up.
@@ -205,7 +210,7 @@ export async function POST(request: Request) {
 
   const slug = await uniqueSlug(supabase, getString("title"));
 
-  const { error: insertError } = await supabase.from("events").insert({
+  const { data: inserted, error: insertError } = await supabase.from("events").insert({
     slug,
     title: getString("title"),
     description: getString("description"),
@@ -231,7 +236,7 @@ export async function POST(request: Request) {
     submitter_email: submitterEmail,
     image_rights_confirmed: imageRightsConfirmed,
     moderation_status: "submitted",
-  });
+  }).select("id").single();
 
   if (insertError) {
     await supabase.storage.from("event-images").remove([imagePath]);
@@ -243,14 +248,26 @@ export async function POST(request: Request) {
 
   try {
     await sendEmail({
-      to: "tourism@midsouthdd.org",
+      to: NEW_SUBMISSION_ALERT_RECIPIENTS,
       subject: "New event submission awaiting review",
       text: `A new event was just submitted: "${getString("title")}"
 
 Log in to review it here: https://events.bluesbackroads.com/admin/login`,
     });
+    await supabase
+      .from("events")
+      .update({ submission_alert_sent_at: new Date().toISOString() })
+      .eq("id", inserted.id);
   } catch (err) {
-    console.error("Failed to send new-submission alert email:", err);
+    // The event itself is already saved at this point, so a failed alert
+    // shouldn't fail the submission for the person filling out the form —
+    // but nobody being told to review it is a real problem, so this logs
+    // loudly (visible in Vercel's function logs), and submission_alert_sent_at
+    // stays null so the admin dashboard flags this event as needing a look.
+    console.error(
+      `ALERT: failed to notify ${NEW_SUBMISSION_ALERT_RECIPIENTS.join(", ")} of new event submission "${getString("title")}":`,
+      err
+    );
   }
 
   return NextResponse.json({ success: true });

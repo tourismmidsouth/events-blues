@@ -1,6 +1,6 @@
 const FROM_ADDRESS = "Blues Backroads Events <admin@mail.bluesbackroads.com>";
 
-export async function sendEmail(params: { to: string; subject: string; text: string }) {
+export async function sendEmail(params: { to: string | string[]; subject: string; text: string }) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     throw new Error("RESEND_API_KEY is not configured.");
