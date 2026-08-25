@@ -192,6 +192,47 @@ popup (change the `cardLinkUrl` value — URL-encoded — if your Events page
 lives at a different address). Since cards never open the popup here, the
 scroll-to-top listener isn't needed on this one.
 
+## Embedding the submission form in Squarespace
+
+The submission page (`/submit-event`) posts the same two kinds of message
+as the gallery embed above: a height update as the form grows/shrinks, and
+a scroll-to-top request the moment someone's event is successfully
+submitted, so the "Thank you! Your event has been submitted for review."
+confirmation is immediately visible instead of scrolled out of view below
+the fold.
+
+Add a **Code Block** in Squarespace 7.1 with:
+
+```html
+<iframe
+  id="blues-backroads-submit-event"
+  src="https://YOUR-VERCEL-DOMAIN.vercel.app/submit-event"
+  width="100%"
+  height="1400"
+  scrolling="no"
+  style="border:0; display:block; overflow:hidden;"
+  loading="lazy"
+  title="Submit a Blues Backroads Event">
+</iframe>
+<script>
+  window.addEventListener("message", function (event) {
+    var iframe = document.getElementById("blues-backroads-submit-event");
+    if (!iframe || !event.data) return;
+    if (event.data.type === "blues-backroads-submit-event-height") {
+      iframe.style.height = event.data.height + "px";
+    } else if (event.data.type === "blues-backroads-scroll-top") {
+      var rect = iframe.getBoundingClientRect();
+      var top = rect.top + window.pageYOffset;
+      window.scrollTo({ top: top, behavior: "smooth" });
+    }
+  });
+</script>
+```
+
+If your existing embed uses a different `id`, update both the `id`
+attribute on the `<iframe>` and the `getElementById(...)` call in the
+script to match.
+
 ## Individual event pages (SEO)
 
 Every event occurrence gets its own standalone, indexable page at:

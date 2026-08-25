@@ -26,6 +26,34 @@ declare global {
 
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
+// Reports this page's rendered height to the parent window so a Squarespace
+// (or any) iframe embed can resize itself to fit the content exactly, and
+// lets us scroll the parent page to the top of the iframe on submit — see
+// useScrollParentToTopOnSubmit below. Same convention as the gallery embed.
+function useIframeHeightReporter(dependency: unknown) {
+  useEffect(() => {
+    function postHeight() {
+      const height = document.documentElement.scrollHeight;
+      window.parent.postMessage({ type: "blues-backroads-submit-event-height", height }, "*");
+    }
+
+    postHeight();
+    const raf = requestAnimationFrame(postHeight);
+    const resizeObserver = new ResizeObserver(postHeight);
+    resizeObserver.observe(document.documentElement);
+    window.addEventListener("load", postHeight);
+    window.addEventListener("resize", postHeight);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      resizeObserver.disconnect();
+      window.removeEventListener("load", postHeight);
+      window.removeEventListener("resize", postHeight);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dependency]);
+}
+
 type FormState = {
   title: string;
   description: string;
@@ -86,6 +114,23 @@ export default function SubmitEventForm() {
   const [ticketEmail, setTicketEmail] = useState("");
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [ticketSent, setTicketSent] = useState(false);
+
+  useIframeHeightReporter(`${submitting}-${submitted}-${!!error}`);
+
+  useEffect(() => {
+    if (!submitted) return;
+    // Bring the confirmation message into view with no scrolling needed —
+    // both within the iframe itself and, via postMessage, the parent
+    // Squarespace page it's embedded in (see README for the listener
+    // script). Deferred a frame so the success view has rendered and the
+    // iframe has already reported its updated height before the parent
+    // scrolls, otherwise it scrolls to a position based on the pre-success
+    // (taller, form-shaped) height.
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: "auto" });
+      window.parent.postMessage({ type: "blues-backroads-scroll-top" }, "*");
+    });
+  }, [submitted]);
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
