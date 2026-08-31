@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = createAdminClient();
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
   const [
     { count: submittedCount },
@@ -41,23 +41,23 @@ export async function GET(request: NextRequest) {
 
   const emailConfigured = Boolean(process.env.RESEND_API_KEY);
 
-  const summary = `Weekly Blues Backroads Events Report
+  const summary = `Blues Backroads Events Report
 
 System status: ${emailConfigured ? "Email sending appears configured (RESEND_API_KEY is set)." : "WARNING: RESEND_API_KEY is not set — emails will fail to send."}
 
-Last 7 days:
+Last 3 days:
 - New event submissions: ${submittedCount ?? 0}
 - Events approved/published: ${publishedCount ?? 0}
 - Events rejected: ${rejectedCount ?? 0}
 - Admin sign-in help requests: ${loginHelpCount ?? 0}
 - Event submission error reports: ${submissionErrorCount ?? 0}
 
-${(loginHelpCount ?? 0) > 0 || (submissionErrorCount ?? 0) > 0 ? "There were support tickets this week — check Supabase's support_tickets table for details." : "No support tickets this week."}`;
+${(loginHelpCount ?? 0) > 0 || (submissionErrorCount ?? 0) > 0 ? "There were support tickets in this period — check Supabase's support_tickets table for details." : "No support tickets in this period."}`;
 
   try {
     await sendEmail({
       to: REPORT_RECIPIENT,
-      subject: "Blues Backroads Events — Weekly Report",
+      subject: "Blues Backroads Events — Report",
       text: summary,
     });
   } catch {
