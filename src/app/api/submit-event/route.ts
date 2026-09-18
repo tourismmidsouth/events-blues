@@ -51,7 +51,16 @@ async function uniqueSlug(supabase: SupabaseClient, title: string): Promise<stri
 }
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+// Vercel's serverless functions hard-cap request bodies at 4.5 MB — a
+// platform limit we don't control and can't raise from app code. Multipart
+// form overhead plus the other text fields eats a bit of that headroom, so
+// this is set safely under it. This used to be 10 MB (with no client-side
+// enforcement in the submission form), so any image between ~4.5-10 MB was
+// silently rejected by Vercel before this handler even ran — the response
+// body wasn't JSON, so the client's `.json()` call threw and submitters saw
+// a generic "Something went wrong" error with no indication it was the
+// image size.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 const REQUIRED_TEXT_FIELDS = [
   "title",
@@ -144,7 +153,7 @@ export async function POST(request: Request) {
       errors.push("Image must be a JPG, PNG, or WebP file.");
     }
     if (imageFile.size > MAX_IMAGE_BYTES) {
-      errors.push("Image must be 10 MB or smaller.");
+      errors.push("Image must be 4 MB or smaller.");
     }
   }
 
