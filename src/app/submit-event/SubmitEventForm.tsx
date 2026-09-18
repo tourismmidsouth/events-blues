@@ -26,6 +26,14 @@ declare global {
 
 const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY;
 
+// Vercel's serverless functions hard-cap request bodies at 4.5 MB, a
+// platform limit that can't be raised from app code — so this must be kept
+// under that regardless of what the API route itself would otherwise
+// accept. Enforced here too (not just server-side) so an oversized image is
+// caught immediately with a clear message instead of failing later with a
+// generic error once it hits the platform limit.
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
 // Reports this page's rendered height to the parent window so a Squarespace
 // (or any) iframe embed can resize itself to fit the content exactly, and
 // lets us scroll the parent page to the top of the iframe on submit — see
@@ -114,6 +122,7 @@ export default function SubmitEventForm() {
   const [ticketEmail, setTicketEmail] = useState("");
   const [ticketSubmitting, setTicketSubmitting] = useState(false);
   const [ticketSent, setTicketSent] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   useIframeHeightReporter(`${submitting}-${submitted}-${!!error}`);
 
@@ -152,7 +161,15 @@ export default function SubmitEventForm() {
   }, []);
 
   function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
-    setImageFile(e.target.files?.[0] || null);
+    setImageError(null);
+    const file = e.target.files?.[0] || null;
+    if (file && file.size > MAX_IMAGE_BYTES) {
+      setImageError("Image must be 4 MB or smaller. Please choose a smaller file.");
+      setImageFile(null);
+      e.target.value = "";
+      return;
+    }
+    setImageFile(file);
   }
 
   async function handleTicketSubmit() {
@@ -179,6 +196,10 @@ export default function SubmitEventForm() {
       setError("Event image is required.");
       return;
     }
+    if (imageFile.size > MAX_IMAGE_BYTES) {
+      setError("Image must be 4 MB or smaller. Please choose a smaller file.");
+      return;
+    }
 
     let recaptchaToken = "";
     if (RECAPTCHA_SITE_KEY) {
@@ -201,10 +222,24 @@ export default function SubmitEventForm() {
         method: "POST",
         body: formData,
       });
-      const result = await response.json();
+
+      let result: { error?: string } = {};
+      try {
+        result = await response.json();
+      } catch {
+        // Response wasn't JSON — e.g. a platform-level rejection (like
+        // Vercel's 4.5 MB request body limit) that never reached our own
+        // error handling. Fall through to the generic message below rather
+        // than crashing on the .json() parse.
+      }
 
       if (!response.ok) {
-        setError(result.error || "Something went wrong. Please try again.");
+        setError(
+          result.error ||
+            (response.status === 413
+              ? "That file is too large to upload. Please use an image under 4 MB."
+              : "Something went wrong. Please try again.")
+        );
         setShowTicketOption(true);
         setSubmitting(false);
         if (RECAPTCHA_SITE_KEY && window.grecaptcha) {
@@ -233,7 +268,7 @@ export default function SubmitEventForm() {
     <form className="form-grid" onSubmit={handleSubmit}>
       <div className="field">
         <label htmlFor="image">Event Image *</label>
-        <span className="hint">JPG, PNG, or WebP. Max 10 MB.</span>
+        <span className="hint">JPG, PNG, or WebP. Max 4 MB.</span>
         <input
           ref={fileInputRef}
           id="image"
@@ -241,6 +276,7 @@ export default function SubmitEventForm() {
           accept="image/jpeg,image/png,image/webp"
           onChange={handleImageChange}
         />
+        {imageError && <span className="error-text">{imageError}</span>}
       </div>
 
       <div className="field">
